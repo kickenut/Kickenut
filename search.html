@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Kickenut - Cancel Subscriptions Fast</title>
+
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #f4f4f4;
+      color: #111;
+    }
+
+    .container {
+      max-width: 800px;
+      margin: auto;
+      padding: 40px 20px;
+      text-align: center;
+    }
+
+    .logo {
+      font-size: 48px;
+      font-weight: bold;
+      margin-bottom: 10px;
+    }
+
+    .tagline {
+      font-size: 18px;
+      color: #555;
+      margin-bottom: 30px;
+    }
+
+    .search-box {
+      display: flex;
+      gap: 10px;
+      background: white;
+      padding: 15px;
+      border-radius: 14px;
+      box-shadow: 0 4px 18px rgba(0,0,0,0.08);
+    }
+
+    input {
+      flex: 1;
+      padding: 16px;
+      font-size: 18px;
+      border: 1px solid #ccc;
+      border-radius: 10px;
+    }
+
+    button {
+      padding: 16px 22px;
+      font-size: 18px;
+      border: none;
+      border-radius: 10px;
+      background: #111;
+      color: white;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background: #333;
+    }
+
+    .loading {
+      margin-top: 25px;
+      font-size: 18px;
+      display: none;
+    }
+
+    .error {
+      margin-top: 20px;
+      padding: 12px;
+      background: #ffe5e5;
+      border: 1px solid #ff9d9d;
+      border-radius: 8px;
+      color: #8a0000;
+      display: none;
+    }
+
+    .footer {
+      margin-top: 40px;
+      font-size: 14px;
+      color: #777;
+    }
+
+    @media (max-width: 650px) {
+      .search-box {
+        flex-direction: column;
+      }
+
+      button {
+        width: 100%;
+      }
+
+      .logo {
+        font-size: 40px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+    <div class="logo">Kickenut</div>
+
+    <div class="tagline">
+      Type the subscription you want to cancel and go straight to the official cancellation page.
+    </div>
+
+    <div class="search-box">
+      <input id="searchInput" type="text" placeholder="Spotify, Netflix, Amazon Prime, Stan..." />
+      <button onclick="searchSubscription()">Find Cancel Page</button>
+    </div>
+
+    <div id="loading" class="loading">
+      Finding the best cancellation page...
+    </div>
+
+    <div id="errorBox" class="error"></div>
+
+    <div class="footer">
+      After cancelling, come back and search for another subscription anytime.
+    </div>
+  </div>
+
+  <script>
+    async function searchSubscription() {
+      const input = document.getElementById("searchInput");
+      const query = input.value.trim();
+
+      const loading = document.getElementById("loading");
+      const errorBox = document.getElementById("errorBox");
+
+      errorBox.style.display = "none";
+
+      if (!query) {
+        errorBox.innerText = "Enter a subscription name first.";
+        errorBox.style.display = "block";
+        return;
+      }
+
+      loading.style.display = "block";
+
+      try {
+        const response = await fetch(`/search?q=${encodeURIComponent(query)}`);
+        const data = await response.json();
+
+        loading.style.display = "none";
+
+        if (data.error) {
+          errorBox.innerText = data.message || data.error;
+          errorBox.style.display = "block";
+          return;
+        }
+
+        window.location.href = data.link;
+
+      } catch (err) {
+        loading.style.display = "none";
+        errorBox.innerText = "Connection error. Make sure server is running.";
+        errorBox.style.display = "block";
+      }
+    }
+
+    document.getElementById("searchInput").addEventListener("keydown", function(e) {
+      if (e.key === "Enter") {
+        searchSubscription();
+      }
+    });
+  </script>
+</body>
+</html>
