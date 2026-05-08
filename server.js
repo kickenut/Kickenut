@@ -1,7 +1,7 @@
 const express = require("express");
 const cors = require("cors");
 
-const API_KEY = "01612d2d0ff7679ff92551668b48764f87d7afa6d263226cfdbbe19795fdddfa";
+const API_KEY = process.env.SERPAPI_KEY;
 
 const app = express();
 app.use(cors());
