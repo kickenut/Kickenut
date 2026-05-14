@@ -16,17 +16,40 @@
       justify-content: center;
       align-items: center;
       text-align: center;
+      overflow-x: hidden;
     }
 
     .container {
       width: 90%;
       max-width: 720px;
-      padding: 30px;
+      padding: 40px 30px 40px;
+    }
+
+    .top-banner {
+      width: 100%;
+      display: flex;
+      justify-content: center;
+      margin-bottom: 35px;
+    }
+
+    .top-banner-ad {
+      width: 100%;
+      max-width: 1000px;
+      height: 50px;
+      border: 1px dashed #555;
+      border-radius: 10px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      color: #777;
+      font-size: 13px;
+      background: #1b1b1b;
     }
 
     h1 {
-      font-size: 64px;
+      font-size: 84px;
       margin-bottom: 10px;
+      letter-spacing: 1px;
     }
 
     p {
@@ -66,10 +89,42 @@
       background: #ffd633;
     }
 
+    .deep-search-area {
+      margin-top: 18px;
+    }
+
+    .deep-label {
+      color: #aaaaaa;
+      font-size: 14px;
+      margin-bottom: 8px;
+      line-height: 1.5;
+    }
+
+    .deep-button {
+      background: #333333;
+      color: #777777;
+      cursor: not-allowed;
+    }
+
+    .deep-button:hover {
+      background: #333333;
+    }
+
+    .deep-button.active {
+      background: #ffcc00;
+      color: #121212;
+      cursor: pointer;
+    }
+
+    .deep-button.active:hover {
+      background: #ffd633;
+    }
+
     .message {
       margin-top: 25px;
       color: #cccccc;
       font-size: 16px;
+      line-height: 1.5;
     }
 
     .ads {
@@ -85,11 +140,14 @@
       color: #888;
       font-size: 14px;
       min-height: 70px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
     }
 
     @media (max-width: 600px) {
       h1 {
-        font-size: 44px;
+        font-size: 62px;
       }
 
       .search-box {
@@ -104,8 +162,17 @@
 </head>
 
 <body>
+
   <div class="container">
+
+    <div class="top-banner">
+      <div class="top-banner-ad">
+        Top banner ad slot
+      </div>
+    </div>
+
     <h1>Kickenut</h1>
+
     <p>Stop unwanted subscriptions instantly.</p>
 
     <div class="search-box">
@@ -115,7 +182,27 @@
         placeholder="Enter a subscription, e.g. Netflix"
         onkeydown="handleEnter(event)"
       />
-      <button onclick="searchSubscription()">Search</button>
+
+      <button onclick="searchSubscription()">
+        Search
+      </button>
+    </div>
+
+    <div class="deep-search-area">
+
+      <div class="deep-label" id="deepLabel">
+        Deep Search unlocks if you return from a result.
+      </div>
+
+      <button
+        id="deepButton"
+        class="deep-button"
+        onclick="deepSearch()"
+        disabled
+      >
+        Deep Search
+      </button>
+
     </div>
 
     <div class="message" id="message">
@@ -123,44 +210,222 @@
     </div>
 
     <div class="ads">
-      <div class="ad-box">Google AdSense ad slot</div>
-      <div class="ad-box">Media.net ad slot</div>
-      <div class="ad-box">PropellerAds ad slot</div>
+
+      <div class="ad-box">
+        Google AdSense ad slot
+      </div>
+
+      <div class="ad-box">
+        Media.net ad slot
+      </div>
+
+      <div class="ad-box">
+        PropellerAds ad slot
+      </div>
+
     </div>
+
   </div>
 
   <script>
+
+    const input = document.getElementById("searchInput");
+    const message = document.getElementById("message");
+    const deepButton = document.getElementById("deepButton");
+    const deepLabel = document.getElementById("deepLabel");
+
+    let deepSearchReady = false;
+
     function handleEnter(event) {
       if (event.key === "Enter") {
         searchSubscription();
       }
     }
 
+    function resetDeepButton() {
+
+      deepSearchReady = false;
+
+      deepButton.disabled = true;
+      deepButton.classList.remove("active");
+
+      deepLabel.textContent =
+        "Deep Search unlocks if you return from a result.";
+
+    }
+
+    function activateDeepButton(lastSearch) {
+
+      deepSearchReady = true;
+
+      input.value = lastSearch;
+
+      deepButton.disabled = false;
+      deepButton.classList.add("active");
+
+      deepLabel.innerHTML =
+        "Not happy with the result? Try Deep Search.<br>The first result is usually best, but another official path may exist.";
+
+      message.textContent =
+        "Try Deep Search for one more official-domain search attempt.";
+
+    }
+
+    function clearSearchState() {
+      sessionStorage.removeItem("kickenutLeftForResult");
+    }
+
+    function checkReturnFromResult() {
+
+      const lastSearch =
+        sessionStorage.getItem("kickenutLastSearch");
+
+      const leftForResult =
+        sessionStorage.getItem("kickenutLeftForResult");
+
+      resetDeepButton();
+
+      if (lastSearch && leftForResult === "true") {
+        activateDeepButton(lastSearch);
+      }
+
+    }
+
+    input.addEventListener("input", () => {
+
+      if (deepSearchReady) {
+
+        resetDeepButton();
+        clearSearchState();
+
+      }
+
+    });
+
     async function searchSubscription() {
-      const input = document.getElementById("searchInput");
-      const message = document.getElementById("message");
+
       const query = input.value.trim();
 
       if (!query) {
-        message.textContent = "Please enter a subscription name.";
+
+        message.textContent =
+          "Please enter a subscription name.";
+
         return;
+
       }
 
-      message.textContent = "Finding the best official cancellation page...";
+      resetDeepButton();
+
+      sessionStorage.setItem(
+        "kickenutLastSearch",
+        query
+      );
+
+      sessionStorage.setItem(
+        "kickenutLeftForResult",
+        "true"
+      );
+
+      message.textContent =
+        "Finding the best official cancellation page...";
 
       try {
-        const response = await fetch(`/search?q=${encodeURIComponent(query)}`);
+
+        const response =
+          await fetch(
+            `/search?q=${encodeURIComponent(query)}`
+          );
+
         const data = await response.json();
 
         if (data.link) {
+
           window.location.href = data.link;
+
         } else {
-          message.textContent = "No official cancellation page found. Please try another search.";
+
+          message.textContent =
+            "No official cancellation page found.";
+
         }
+
       } catch (error) {
-        message.textContent = "Something went wrong. Please try again.";
+
+        message.textContent =
+          "Something went wrong. Please try again.";
+
       }
+
     }
+
+    async function deepSearch() {
+
+      const query =
+        input.value.trim() ||
+        sessionStorage.getItem(
+          "kickenutLastSearch"
+        );
+
+      if (!query) {
+
+        message.textContent =
+          "Please enter a subscription first.";
+
+        return;
+
+      }
+
+      message.textContent =
+        "Running Deep Search inside official pages only...";
+
+      try {
+
+        const response =
+          await fetch(
+            `/search?q=${encodeURIComponent(query)}&deep=true`
+          );
+
+        const data = await response.json();
+
+        if (data.link) {
+
+          sessionStorage.setItem(
+            "kickenutLastSearch",
+            query
+          );
+
+          sessionStorage.setItem(
+            "kickenutLeftForResult",
+            "true"
+          );
+
+          window.location.href = data.link;
+
+        } else {
+
+          message.textContent =
+            "Deep Search could not find a better official result.";
+
+        }
+
+      } catch (error) {
+
+        message.textContent =
+          "Something went wrong during Deep Search.";
+
+      }
+
+    }
+
+    window.addEventListener(
+      "pageshow",
+      checkReturnFromResult
+    );
+
+    checkReturnFromResult();
+
   </script>
+
 </body>
 </html>
