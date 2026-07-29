@@ -1,0 +1,38 @@
+[
+  {
+    "searchedQuery": "Stan",
+    "company": "Stan",
+    "title": "Stan official account or billing route",
+    "url": "https://help.stan.com.au/hc/en-us/articles/202759790-How-do-I-cancel-my-Stan-account",
+    "canonicalUrl": "https://help.stan.com.au/hc/en-us/articles/202759790-How-do-I-cancel-my-Stan-account",
+    "officialSite": "https://www.stan.com.au/",
+    "resultType": "Official account or billing route",
+    "source": "live-official-site-discovery",
+    "confidence": "Medium",
+    "tier": "Tier 2 candidate",
+    "score": 430,
+    "reason": "Official candidate URL accepted from the company seed after official-domain and exit-word checks.",
+    "firstFound": "2026-07-21T02:49:06.442Z",
+    "lastSeen": "2026-07-21T02:49:19.006Z",
+    "timesSeen": 2,
+    "status": "pending_review"
+  },
+  {
+    "searchedQuery": "HelloFresh",
+    "company": "HelloFresh",
+    "title": "HelloFresh official account or billing route",
+    "url": "https://www.hellofresh.com/about/how-to-cancel-hellofresh-subscription",
+    "canonicalUrl": "https://www.hellofresh.com/about/how-to-cancel-hellofresh-subscription",
+    "officialSite": "https://www.hellofresh.com/",
+    "resultType": "Official account or billing route",
+    "source": "live-official-site-discovery",
+    "confidence": "Medium",
+    "tier": "Tier 2 candidate",
+    "score": 430,
+    "reason": "Official candidate URL accepted from the company seed after official-domain and exit-word checks.",
+    "firstFound": "2026-07-21T02:49:06.444Z",
+    "lastSeen": "2026-07-21T02:49:19.009Z",
+    "timesSeen": 2,
+    "status": "pending_review"
+  }
+]

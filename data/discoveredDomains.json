@@ -1,0 +1,32 @@
+{
+  "hellofresh": {
+    "company": "hello fresh",
+    "domain": "hellofresh.com",
+    "source": "wikidata-official-website",
+    "savedAt": "2026-07-08T08:04:55.335Z"
+  },
+  "google": {
+    "company": "google",
+    "domain": "about.google",
+    "source": "wikidata-official-website",
+    "savedAt": "2026-07-08T08:43:10.284Z"
+  },
+  "uber": {
+    "company": "uber",
+    "domain": "uber.com",
+    "source": "wikidata-official-website",
+    "savedAt": "2026-07-08T10:15:30.870Z"
+  },
+  "ikea": {
+    "company": "ikea",
+    "domain": "ikea.com",
+    "source": "wikidata-official-website",
+    "savedAt": "2026-07-16T13:38:04.946Z"
+  },
+  "lootcrate": {
+    "company": "loot crate",
+    "domain": "lootcrate.com",
+    "source": "wikidata-official-website",
+    "savedAt": "2026-07-21T10:27:37.617Z"
+  }
+}

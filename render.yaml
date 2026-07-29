@@ -1,0 +1,35 @@
+services:
+  - type: web
+    name: kickenut
+    runtime: node
+    plan: standard
+    buildCommand: npm ci
+    startCommand: npm start
+    healthCheckPath: /health
+    autoDeployTrigger: off
+    maxShutdownDelaySeconds: 30
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: KICKENUT_ALLOWED_ORIGINS
+        sync: false
+      - key: KICKENUT_MAX_CONCURRENT_SEARCHES
+        value: "4"
+      - key: KICKENUT_MAX_QUEUE_SIZE
+        value: "24"
+      - key: KICKENUT_QUEUE_TIMEOUT_MS
+        value: "3000"
+      - key: KICKENUT_CACHE_MAX_ENTRIES
+        value: "500"
+      - key: KICKENUT_CACHE_POSITIVE_TTL_MS
+        value: "43200000"
+      - key: KICKENUT_CACHE_NEGATIVE_TTL_MS
+        value: "600000"
+      - key: KICKENUT_IP_RATE_LIMIT_MAX
+        value: "60"
+      - key: KICKENUT_QUERY_RATE_LIMIT_MAX
+        value: "20"
+      - key: KICKENUT_SEARCH_TIMEOUT_MS
+        value: "10000"
+      - key: KICKENUT_DEEP_SEARCH_TIMEOUT_MS
+        value: "12000"
