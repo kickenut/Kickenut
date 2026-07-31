@@ -419,6 +419,18 @@ function deriveKnownOfficialSiteFallback(seed) {
   return getSeedEnglishOfficialSite(seed) || getSeedEnglishOfficialDomainSite(seed) || "";
 }
 
+function hasExplicitRouteCandidates(seed) {
+  return (seed?.candidateUrls || []).some((url) => Boolean(safeUrl(url)));
+}
+
+function shouldReturnKnownOfficialSiteFallback(seed) {
+  return (
+    companySeeds.includes(seed) &&
+    !hasExplicitRouteCandidates(seed) &&
+    Boolean(deriveKnownOfficialSiteFallback(seed))
+  );
+}
+
 function deriveEnglishLocaleHomepage(url) {
   const segments = (url.pathname || "")
     .split("/")
@@ -1465,6 +1477,7 @@ async function searchCancellationRoute(query, options = {}) {
 
   const seed = getCompanySeed(cleanQuery) || await discoverCompanySeed(cleanQuery, searchOptions);
   if (!seed) return formatNoResult(cleanQuery);
+  if (shouldReturnKnownOfficialSiteFallback(seed)) return formatNoResult(cleanQuery, seed);
 
   const discovered = await discoverOfficialRoute(cleanQuery, seed, searchOptions);
   return discovered || formatNoResult(cleanQuery, seed);
