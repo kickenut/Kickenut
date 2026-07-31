@@ -2,34 +2,77 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Kickenut - Cancel Subscriptions Fast</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Kickenut - Stop unwanted subscriptions instantly</title>
 
   <style>
     body {
       margin: 0;
       font-family: Arial, sans-serif;
-      background: #f4f4f4;
-      color: #111;
+      background: #121212;
+      color: white;
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      overflow-x: hidden;
     }
 
     .container {
-      max-width: 800px;
-      margin: auto;
-      padding: 40px 20px;
-      text-align: center;
+      width: 90%;
+      max-width: 720px;
+      padding: 40px 30px 40px;
     }
 
-    .logo {
-      font-size: 48px;
-      font-weight: bold;
+    .top-banner {
+      width: 100%;
+      display: flex;
+      justify-content: center;
+      margin-bottom: 35px;
+    }
+
+    .top-banner-ad {
+      width: 100%;
+      max-width: 1000px;
+      height: 50px;
+      border: 1px dashed #555;
+      border-radius: 10px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      color: #777;
+      font-size: 13px;
+      background: #1b1b1b;
+    }
+
+    h1 {
+      font-size: 98px;
       margin-bottom: 10px;
+      letter-spacing: 1px;
+      color: #ffffff;
+      text-shadow:
+        -1px -1px 0 #050505,
+        1px -1px 0 #050505,
+        -1px 1px 0 #050505,
+        1px 1px 0 #050505,
+        0 -1px 0 #050505,
+        0 1px 0 #050505,
+        -1px 0 0 #050505,
+        1px 0 0 #050505,
+        -2px -2px 0 #cc2027,
+        2px -2px 0 #cc2027,
+        -2px 2px 0 #cc2027,
+        2px 2px 0 #cc2027,
+        0 -2px 0 #cc2027,
+        0 2px 0 #cc2027,
+        -2px 0 0 #cc2027,
+        2px 0 0 #cc2027;
     }
 
-    .tagline {
+    p {
+      color: #cccccc;
       font-size: 18px;
-      color: #555;
-      margin-bottom: 30px;
     }
 
     .search-box {
@@ -38,137 +81,934 @@
       background: white;
       padding: 15px;
       border-radius: 14px;
-      box-shadow: 0 4px 18px rgba(0,0,0,0.08);
+      margin-top: 30px;
     }
 
     input {
       flex: 1;
-      padding: 16px;
+      min-width: 0;
+      border: none;
+      outline: none;
       font-size: 18px;
-      border: 1px solid #ccc;
-      border-radius: 10px;
+      padding: 12px;
     }
 
-    button {
-      padding: 16px 22px;
-      font-size: 18px;
+    button:not(.kickenut-action-button) {
       border: none;
+      background: #ffcc00;
+      color: #121212;
+      font-size: 18px;
+      font-weight: bold;
+      padding: 12px 22px;
       border-radius: 10px;
-      background: #111;
-      color: white;
       cursor: pointer;
     }
 
-    button:hover {
-      background: #333;
+    button:not(.kickenut-action-button):hover {
+      background: #ffd633;
     }
 
-    .loading {
-      margin-top: 25px;
-      font-size: 18px;
+    .deep-search-area {
+      margin-top: 18px;
+    }
+
+    .category-panel {
       display: none;
+      margin: 16px auto 0;
+      max-width: 620px;
     }
 
-    .error {
-      margin-top: 20px;
-      padding: 12px;
-      background: #ffe5e5;
-      border: 1px solid #ff9d9d;
-      border-radius: 8px;
-      color: #8a0000;
-      display: none;
+    .category-title {
+      color: #dddddd;
+      font-size: 15px;
+      margin-bottom: 10px;
     }
 
-    .footer {
-      margin-top: 40px;
+    .category-options {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .category-option {
+      background: #2a2a2a;
+      color: #ffffff;
+      border: 1px solid #3a3a3a;
       font-size: 14px;
-      color: #777;
+      padding: 9px 12px;
+      border-radius: 8px;
+      cursor: pointer;
     }
 
-    @media (max-width: 650px) {
+    .category-option:hover {
+      background: #ffcc00;
+      color: #121212;
+      border-color: #ffcc00;
+    }
+
+    .deep-label {
+      color: #aaaaaa;
+      font-size: 14px;
+      margin-bottom: 8px;
+      line-height: 1.5;
+    }
+
+    .message {
+      margin-top: 25px;
+      color: #cccccc;
+      font-size: 16px;
+      line-height: 1.5;
+      min-height: 35px;
+    }
+
+    .search-status-row {
+      width: 100%;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 10px;
+      min-height: 54px;
+      margin-top: 14px;
+    }
+
+    .loading-box {
+      visibility: hidden;
+      opacity: 0;
+      width: 100%;
+      margin: 0;
+      transition: opacity 0.12s linear;
+    }
+
+    .loading-box.visible {
+      visibility: visible;
+      opacity: 1;
+    }
+
+    .loading-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      color: #dddddd;
+      font-size: 13px;
+      margin-bottom: 8px;
+    }
+
+    .progress-track {
+      width: 100%;
+      height: 7px;
+      background: #242424;
+      border-radius: 100px;
+      overflow: hidden;
+      border: 1px solid #333333;
+    }
+
+    .progress-fill {
+      height: 100%;
+      width: 0%;
+      background: #ffffff;
+      border-radius: 100px;
+      box-shadow: 0 0 10px rgba(255, 255, 255, 0.45);
+      transition: width 0.16s linear;
+    }
+
+    .scan-text {
+      margin-top: 9px;
+      color: #999999;
+      font-size: 13px;
+    }
+
+    .result-button-slot {
+      display: flex;
+      justify-content: flex-end;
+      align-items: center;
+      min-height: 54px;
+    }
+
+    .search-again-button {
+      background: #333333;
+      color: #ffffff;
+    }
+
+    .search-again-button:hover {
+      background: #444444;
+    }
+
+    .result-link {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: #ffcc00;
+      color: #121212;
+      padding: 8px 14px;
+      border-radius: 8px;
+      text-decoration: none;
+      font-weight: bold;
+      font-size: 14px;
+      white-space: nowrap;
+      visibility: hidden;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .result-link.visible {
+      visibility: visible;
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .ads {
+      margin-top: 45px;
+      display: grid;
+      gap: 16px;
+    }
+
+    .ad-box {
+      border: 1px dashed #555;
+      border-radius: 12px;
+      padding: 20px;
+      color: #888;
+      font-size: 14px;
+      min-height: 70px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    @media (max-width: 600px) {
+      h1 {
+        font-size: 72px;
+      }
+
       .search-box {
         flex-direction: column;
+      }
+
+      .search-status-row {
+        grid-template-columns: 1fr;
+      }
+
+      .result-button-slot {
+        justify-content: stretch;
+      }
+
+      .result-link {
+        width: 100%;
       }
 
       button {
         width: 100%;
       }
 
-      .logo {
-        font-size: 40px;
-      }
     }
+
+    .kickenut-action-button {
+      border: none;
+      background: #ffcc00;
+      color: #121212;
+      white-space: nowrap;
+      box-sizing: border-box;
+      padding: 12px 22px;
+      border-radius: 10px;
+      font-family: inherit;
+      font-size: 18px;
+      font-weight: bold;
+      line-height: normal;
+      cursor: pointer;
+    }
+
+    .kickenut-action-button:hover {
+      background: #ffd633;
+    }
+
+    .official-website-inactive,
+    .official-website-inactive:hover,
+    .official-website-inactive:disabled {
+      background: #333333;
+      color: #777777;
+      cursor: not-allowed;
+      opacity: 0.75;
+    }
+
+    .official-website-active {
+      background: #ffcc00;
+      color: #121212;
+      cursor: pointer;
+      opacity: 1;
+    }
+
+    .official-website-active:hover {
+      background: #ffd633;
+    }
+
   </style>
 </head>
 
 <body>
+
   <div class="container">
-    <div class="logo">Kickenut</div>
 
-    <div class="tagline">
-      Type the subscription you want to cancel and go straight to the official cancellation page.
+    <div class="top-banner">
+      <div class="top-banner-ad">
+        Top banner ad slot
+      </div>
     </div>
 
-    <div class="search-box">
-      <input id="searchInput" type="text" placeholder="Spotify, Netflix, Amazon Prime, Stan..." />
-      <button onclick="searchSubscription()">Find Cancel Page</button>
+    <h1>Kickenut</h1>
+
+    <p>Stop unwanted subscriptions instantly.</p>
+
+
+     <div class="search-box">
+  <input
+    id="searchInput"
+    type="text"
+    placeholder="Enter a subscription, e.g. Netflix"
+    onkeydown="handleEnter(event)"
+  />
+
+  <button class="kickenut-action-button" onclick="searchSubscription()">
+    Search
+  </button>
+
+  <!-- KICKENUT_OFFICIAL_WEBSITE_STYLE_FIX_ACTIVE -->
+	  <button
+		    id="officialSiteButton"
+		    class="kickenut-action-button official-website-button official-website-inactive"
+		    onclick="openOfficialSite()"
+		    disabled
+		  >
+			    Official Website
+		  </button>
+		</div>
+
+<div id="categoryPanel" class="category-panel">
+  <div id="categoryTitle" class="category-title"></div>
+  <div id="categoryOptions" class="category-options"></div>
+</div>
+
+    <div class="search-status-row" id="searchStatusRow">
+      <div id="loadingBox" class="loading-box">
+        <div class="loading-row">
+          <span id="scanLabel">Searching official sources...</span>
+          <span id="percentText">0%</span>
+        </div>
+
+        <div class="progress-track">
+          <div id="progressFill" class="progress-fill"></div>
+        </div>
+
+        <div id="scanText" class="scan-text">
+          Checking official cancellation paths...
+        </div>
+      </div>
+
+      <div class="result-button-slot">
+        <a
+          id="resultLink"
+          class="result-link"
+          href="#"
+          target="_blank"
+          rel="noopener noreferrer"
+          onclick="markResultOpened()"
+          aria-disabled="true"
+          tabindex="-1"
+        >Open official result</a>
+      </div>
     </div>
 
-    <div id="loading" class="loading">
-      Finding the best cancellation page...
+		<div class="deep-search-area">
+		  <div class="deep-label" id="officialSiteLabel">
+			    Official Website unlocks after you return from the result.
+		  </div>
+		</div>
+    <div class="message" id="message">
+
+      <div id="defaultMessage">
+        After cancelling, come back and search for another subscription anytime.
+      </div>
+
     </div>
 
-    <div id="errorBox" class="error"></div>
+    <div class="ads">
 
-    <div class="footer">
-      After cancelling, come back and search for another subscription anytime.
+      <div class="ad-box">
+        Google AdSense ad slot
+      </div>
+
+      <div class="ad-box">
+        Media.net ad slot
+      </div>
+
+      <div class="ad-box">
+        PropellerAds ad slot
+      </div>
+
     </div>
+
   </div>
 
   <script>
-    async function searchSubscription() {
-      const input = document.getElementById("searchInput");
-      const query = input.value.trim();
+	    const input = document.getElementById("searchInput");
+	    const officialSiteButton = document.getElementById("officialSiteButton");
+	    const officialSiteLabel = document.getElementById("officialSiteLabel");
 
-      const loading = document.getElementById("loading");
-      const errorBox = document.getElementById("errorBox");
+    const defaultMessage = document.getElementById("defaultMessage");
+    const loadingBox = document.getElementById("loadingBox");
+    const progressFill = document.getElementById("progressFill");
+    const percentText = document.getElementById("percentText");
+    const scanText = document.getElementById("scanText");
+    const scanLabel = document.getElementById("scanLabel");
+    const resultLink = document.getElementById("resultLink");
+    const categoryPanel = document.getElementById("categoryPanel");
+    const categoryTitle = document.getElementById("categoryTitle");
+    const categoryOptions = document.getElementById("categoryOptions");
 
-      errorBox.style.display = "none";
+	    let officialSiteReady = false;
+	    let officialSiteUrl = "";
+	    let resultSent = false;
+	    let userActuallyLeft = false;
+    let progressTimer = null;
+    let scanTimer = null;
+    let progress = 0;
+    let activeSearchRequestId = 0;
+		    let activeSearchController = null;
+		    let activeSearchQuery = "";
+		    let searchInProgress = false;
 
-      if (!query) {
-        errorBox.innerText = "Enter a subscription name first.";
-        errorBox.style.display = "block";
-        return;
-      }
+		    const MIN_SEARCH_TIME = 8000;
 
-      loading.style.display = "block";
+    const categoryGroups = {};
 
-      try {
-        const response = await fetch(`/search?q=${encodeURIComponent(query)}`);
-        const data = await response.json();
+    function wait(ms) {
+      return new Promise(resolve => setTimeout(resolve, ms));
+    }
 
-        loading.style.display = "none";
+    async function waitForMinimumTime(startTime, minimumTime) {
+      const elapsed = Date.now() - startTime;
+      const remaining = minimumTime - elapsed;
 
-        if (data.error) {
-          errorBox.innerText = data.message || data.error;
-          errorBox.style.display = "block";
-          return;
-        }
-
-        window.location.href = data.link;
-
-      } catch (err) {
-        loading.style.display = "none";
-        errorBox.innerText = "Connection error. Make sure server is running.";
-        errorBox.style.display = "block";
+      if (remaining > 0) {
+        await wait(remaining);
       }
     }
 
-    document.getElementById("searchInput").addEventListener("keydown", function(e) {
-      if (e.key === "Enter") {
+    function abortActiveSearch(invalidate = true) {
+      if (activeSearchController) {
+        activeSearchController.abort();
+      }
+
+      activeSearchController = null;
+      activeSearchQuery = "";
+      searchInProgress = false;
+
+      if (invalidate) {
+        activeSearchRequestId += 1;
+      }
+    }
+
+    function beginSearchRequest(query) {
+      abortActiveSearch(false);
+
+      activeSearchRequestId += 1;
+      activeSearchQuery = query;
+      searchInProgress = true;
+
+      const controller = new AbortController();
+      activeSearchController = controller;
+
+      resultSent = false;
+      userActuallyLeft = false;
+      clearSearchState();
+      showDefaultMessage("Searching official sources...");
+
+      return {
+        requestId: activeSearchRequestId,
+        controller
+      };
+    }
+
+    function isCurrentSearch(requestId, query) {
+      const currentInput = normaliseSearchText(input.value.trim());
+      const requestQuery = normaliseSearchText(query);
+
+      return (
+        requestId === activeSearchRequestId &&
+        normaliseSearchText(activeSearchQuery) === requestQuery &&
+        currentInput === requestQuery
+      );
+    }
+
+    function finishSearchRequest(requestId, controller) {
+      if (
+        requestId === activeSearchRequestId &&
+        activeSearchController === controller
+      ) {
+        activeSearchController = null;
+        searchInProgress = false;
+      }
+    }
+
+    const scanMessages = [
+      "Searching official sources...",
+      "Checking billing portals...",
+      "Filtering community pages...",
+      "Removing unofficial results...",
+      "Ranking cancellation paths...",
+      "Checking account pages...",
+      "Verifying official domains...",
+      "Looking for unsubscribe options...",
+      "Avoiding forums and blogs...",
+      "Finalising best exit path..."
+    ];
+
+    function handleEnter(event) {
+      if (event.key === "Enter") {
         searchSubscription();
       }
+    }
+
+		    function normaliseSearchText(value) {
+		      return String(value || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+		    }
+
+			    function rememberOfficialSite(result = {}) {
+			      officialSiteUrl = result.officialSite || "";
+
+		      if (officialSiteUrl) {
+		        sessionStorage.setItem("kickenutOfficialSiteUrl", officialSiteUrl);
+		      } else {
+		        sessionStorage.removeItem("kickenutOfficialSiteUrl");
+		      }
+		    }
+
+    function shouldShowAmazonCategories(query) {
+      return false;
+    }
+
+    function hideCategoryPanel() {
+      categoryPanel.style.display = "none";
+      categoryTitle.textContent = "";
+      categoryOptions.innerHTML = "";
+    }
+
+    function showCategoryPanel(groupName) {
+      const group = categoryGroups[groupName];
+
+      if (!group) {
+        hideCategoryPanel();
+        return;
+      }
+
+	      hideLoading();
+	      resetOfficialSiteButton();
+
+      categoryTitle.textContent = group.title;
+      categoryOptions.innerHTML = "";
+
+      group.options.forEach((option) => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "category-option";
+        button.textContent = option.label;
+
+        button.addEventListener("click", () => {
+          input.value = option.query;
+          hideCategoryPanel();
+          searchSubscription();
+        });
+
+        categoryOptions.appendChild(button);
+      });
+
+      categoryPanel.style.display = "block";
+      showDefaultMessage("Choose the closest option so Kickenut can take you to the right official page.");
+    }
+
+    function showDefaultMessage(text) {
+      defaultMessage.style.display = "block";
+      loadingBox.classList.remove("visible");
+
+      if (text) {
+        defaultMessage.textContent = text;
+      }
+    }
+
+    function showLoading() {
+      defaultMessage.style.display = "none";
+      resetResultLink();
+      loadingBox.classList.add("visible");
+
+      clearInterval(progressTimer);
+      clearInterval(scanTimer);
+
+      progress = 0;
+      progressFill.style.width = "0%";
+      percentText.textContent = "0%";
+      scanLabel.textContent = "Searching official sources...";
+      scanText.textContent = "Checking official cancellation paths...";
+
+      progressTimer = setInterval(() => {
+        if (progress < 88) {
+          progress += Math.floor(Math.random() * 7) + 3;
+
+          if (progress > 88) {
+            progress = 88;
+          }
+
+          progressFill.style.width = progress + "%";
+          percentText.textContent = progress + "%";
+        }
+      }, 180);
+
+      let index = 0;
+
+      scanTimer = setInterval(() => {
+        index = (index + 1) % scanMessages.length;
+        scanLabel.textContent = scanMessages[index];
+        scanText.textContent = scanMessages[index];
+      }, 260);
+    }
+
+    function finishLoading() {
+      clearInterval(progressTimer);
+      clearInterval(scanTimer);
+
+      progressFill.style.width = "100%";
+      percentText.textContent = "100%";
+      scanLabel.textContent = "Official result ready.";
+      scanText.textContent = "";
+    }
+
+    function hideLoading() {
+      clearInterval(progressTimer);
+      clearInterval(scanTimer);
+
+      loadingBox.classList.remove("visible");
+      progressFill.style.width = "0%";
+      percentText.textContent = "0%";
+    }
+
+    function resetResultLink() {
+      resultLink.href = "#";
+      resultLink.classList.remove("visible");
+      resultLink.setAttribute("aria-disabled", "true");
+      resultLink.setAttribute("tabindex", "-1");
+    }
+
+    function showResultLink(link) {
+      resultLink.href = link;
+      resultLink.classList.add("visible");
+      resultLink.setAttribute("aria-disabled", "false");
+      resultLink.removeAttribute("tabindex");
+    }
+
+		    function resetOfficialSiteButton() {
+		      officialSiteReady = false;
+		      officialSiteUrl = "";
+
+	      officialSiteButton.disabled = true;
+	      officialSiteButton.classList.remove("official-website-active");
+	      officialSiteButton.classList.add("official-website-inactive");
+
+		      officialSiteLabel.textContent =
+		        "Official Website unlocks after you return from the result.";
+		    }
+
+		    function activateOfficialSiteButton(lastSearch) {
+		      const storedOfficialSiteUrl =
+		        sessionStorage.getItem("kickenutOfficialSiteUrl") || officialSiteUrl;
+
+		      if (!storedOfficialSiteUrl) {
+		        resetOfficialSiteButton();
+		        return;
+		      }
+
+		      officialSiteReady = true;
+		      officialSiteUrl = storedOfficialSiteUrl;
+
+	      input.value = lastSearch;
+
+	      officialSiteButton.disabled = false;
+	      officialSiteButton.classList.remove("official-website-inactive");
+	      officialSiteButton.classList.add("official-website-active");
+
+		      officialSiteLabel.textContent =
+		        "Open the official company site to sign in and manage your subscription.";
+		    }
+
+	    function clearSearchState() {
+	      sessionStorage.removeItem("kickenutResultSent");
+	      sessionStorage.removeItem("kickenutUserActuallyLeft");
+	      sessionStorage.removeItem("kickenutOfficialSiteUrl");
+	    }
+
+		    function resetForNewSearch() {
+		      input.value = "";
+		      hideCategoryPanel();
+
+	      sessionStorage.removeItem("kickenutLastSearch");
+      clearSearchState();
+
+      resultSent = false;
+      userActuallyLeft = false;
+
+	      resetOfficialSiteButton();
+	      resetResultLink();
+	      showDefaultMessage("After cancelling, come back and search for another subscription anytime.");
+
+      input.focus();
+    }
+
+    function markResultOpened() {
+      resultSent = true;
+
+      sessionStorage.setItem(
+        "kickenutResultSent",
+        "true"
+      );
+    }
+
+    function escapeHtml(value) {
+      return String(value || "").replace(/[&<>"']/g, (char) => {
+        const entities = {
+          "&": "&amp;",
+          "<": "&lt;",
+          ">": "&gt;",
+          "\"": "&quot;",
+          "'": "&#39;"
+        };
+
+        return entities[char];
+      });
+    }
+
+    function showManualResultLink(link) {
+      hideLoading();
+      loadingBox.classList.add("visible");
+      scanLabel.textContent = "Official result ready";
+      scanText.textContent = "";
+      showResultLink(link);
+
+      defaultMessage.style.display = "none";
+      defaultMessage.textContent = "";
+    }
+
+    function checkReturnFromResult() {
+      const lastSearch =
+        sessionStorage.getItem("kickenutLastSearch");
+
+      const resultWasSent =
+        sessionStorage.getItem("kickenutResultSent");
+
+      const userLeft =
+        sessionStorage.getItem("kickenutUserActuallyLeft");
+
+      if (
+        lastSearch &&
+        resultWasSent === "true" &&
+        userLeft === "true"
+	      ) {
+	        activateOfficialSiteButton(lastSearch);
+	      }
+    }
+
+    function markUserLeftIfNeeded() {
+      if (
+        resultSent ||
+        sessionStorage.getItem("kickenutResultSent") === "true"
+      ) {
+        userActuallyLeft = true;
+
+        sessionStorage.setItem(
+          "kickenutUserActuallyLeft",
+          "true"
+        );
+      }
+    }
+
+    input.addEventListener("input", () => {
+      const lastSearch =
+        sessionStorage.getItem("kickenutLastSearch");
+
+      const currentSearch =
+        input.value.trim().toLowerCase();
+
+      const previousSearch =
+        (lastSearch || "").trim().toLowerCase();
+
+      const inputChangedFromActiveSearch =
+        searchInProgress &&
+        normaliseSearchText(currentSearch) !== normaliseSearchText(activeSearchQuery);
+
+      const inputChangedFromLastResult =
+        !searchInProgress &&
+        previousSearch &&
+        normaliseSearchText(currentSearch) !== normaliseSearchText(previousSearch);
+
+      if (inputChangedFromActiveSearch || inputChangedFromLastResult) {
+        if (inputChangedFromActiveSearch) {
+          abortActiveSearch();
+        }
+
+        resultSent = false;
+        userActuallyLeft = false;
+        clearSearchState();
+        hideLoading();
+        resetResultLink();
+		        resetOfficialSiteButton();
+		        hideCategoryPanel();
+	        showDefaultMessage("After cancelling, come back and search for another subscription anytime.");
+	      }
+
+	      if (officialSiteReady && currentSearch !== previousSearch) {
+		        resetOfficialSiteButton();
+		        resetResultLink();
+		        clearSearchState();
+	        hideCategoryPanel();
+	        showDefaultMessage("After cancelling, come back and search for another subscription anytime.");
+      }
+
+      if (!currentSearch) {
+	        abortActiveSearch();
+		        resetOfficialSiteButton();
+		        resetResultLink();
+		        clearSearchState();
+	        hideCategoryPanel();
+	        showDefaultMessage("After cancelling, come back and search for another subscription anytime.");
+      }
+
+      if (
+        categoryPanel.style.display === "block" &&
+        !shouldShowAmazonCategories(currentSearch)
+      ) {
+        hideCategoryPanel();
+      }
+
     });
+
+    async function searchSubscription() {
+      const query = input.value.trim();
+      const searchStartTime = Date.now();
+
+      if (!query) {
+        abortActiveSearch();
+        showDefaultMessage("Please enter a subscription name.");
+        return;
+      }
+
+      if (shouldShowAmazonCategories(query)) {
+        abortActiveSearch();
+        showCategoryPanel("amazon");
+        return;
+      }
+
+		      hideCategoryPanel();
+		      resetOfficialSiteButton();
+		      resetResultLink();
+
+		      const { requestId, controller } = beginSearchRequest(query);
+
+      showLoading();
+
+      sessionStorage.setItem(
+        "kickenutLastSearch",
+        query
+      );
+
+      try {
+        const response =
+          await fetch(
+            `/search?q=${encodeURIComponent(query)}&fresh=${Date.now()}`,
+            {
+              signal: controller.signal
+            }
+          );
+
+        if (!isCurrentSearch(requestId, query)) return;
+
+        const data = await response.json();
+
+        if (!isCurrentSearch(requestId, query)) return;
+
+        await waitForMinimumTime(searchStartTime, MIN_SEARCH_TIME);
+
+        if (!isCurrentSearch(requestId, query)) return;
+
+        finishLoading();
+
+        await wait(200);
+
+        if (!isCurrentSearch(requestId, query)) return;
+
+		        if (data.link) {
+			          rememberOfficialSite(data);
+		          showManualResultLink(data.link);
+		        } else {
+		          hideLoading();
+		          if (data.officialSite) {
+		            rememberOfficialSite(data);
+		            activateOfficialSiteButton(query);
+		          } else {
+		            resetOfficialSiteButton();
+		          }
+		          showDefaultMessage(
+            data.error ||
+            data.notes ||
+            "No official cancellation route found yet. Try entering the company's official website."
+          );
+        }
+      } catch (error) {
+        if (error.name === "AbortError" || !isCurrentSearch(requestId, query)) return;
+
+        await waitForMinimumTime(searchStartTime, MIN_SEARCH_TIME);
+
+        if (!isCurrentSearch(requestId, query)) return;
+
+        finishLoading();
+
+        await wait(200);
+
+        if (!isCurrentSearch(requestId, query)) return;
+
+        hideLoading();
+        showDefaultMessage("Something went wrong. Please try again.");
+      } finally {
+        finishSearchRequest(requestId, controller);
+      }
+    }
+
+		    function openOfficialSite() {
+		      const storedOfficialSiteUrl =
+		        sessionStorage.getItem("kickenutOfficialSiteUrl") || officialSiteUrl;
+
+		      if (!officialSiteReady || !storedOfficialSiteUrl) {
+		        showDefaultMessage("Open the first official result, then return to use the official site button.");
+		        return;
+		      }
+
+		      window.open(storedOfficialSiteUrl, "_blank", "noopener,noreferrer");
+		    }
+
+    window.addEventListener("blur", markUserLeftIfNeeded);
+
+    document.addEventListener("visibilitychange", () => {
+      if (document.hidden) {
+        markUserLeftIfNeeded();
+      }
+
+      if (!document.hidden) {
+        checkReturnFromResult();
+      }
+    });
+
+    window.addEventListener("focus", checkReturnFromResult);
+
+    window.addEventListener("pageshow", checkReturnFromResult);
+
+    showDefaultMessage("After cancelling, come back and search for another subscription anytime.");
+    checkReturnFromResult();
   </script>
+
 </body>
 </html>

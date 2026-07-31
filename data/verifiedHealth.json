@@ -1,0 +1,179 @@
+[
+  {
+    "company": "Netflix",
+    "url": "https://www.netflix.com/cancelplan",
+    "canonicalUrl": "https://www.netflix.com/cancelplan",
+    "status": "healthy",
+    "httpStatus": 200,
+    "finalUrl": "https://www.netflix.com/login?nextpage=https%3A%2F%2Fwww.netflix.com%2Fcancelplan",
+    "redirectChanged": true,
+    "lastChecked": "2026-07-29T06:18:18.858Z",
+    "lastGood": "2026-07-29T06:18:18.858Z",
+    "failureCount": 0,
+    "reason": "Verified URL is reachable and still shows relevant cancellation/subscription/account-management signals.",
+    "title": "Netflix",
+    "detectedSignals": [
+      "cancellation",
+      "subscription_or_account_management",
+      "login_or_account_access"
+    ],
+    "notes": "Official Netflix cancellation route."
+  },
+  {
+    "company": "Amazon",
+    "url": "https://www.amazon.de/mm/two-click/express-cancel?ref_=nav_footer",
+    "canonicalUrl": "https://www.amazon.de/mm/two-click/express-cancel",
+    "status": "healthy",
+    "httpStatus": 200,
+    "finalUrl": "https://www.amazon.de/mm/two-click/express-cancel?ref_=nav_footer",
+    "redirectChanged": false,
+    "lastChecked": "2026-07-29T06:18:22.191Z",
+    "lastGood": "2026-07-29T06:18:22.191Z",
+    "failureCount": 0,
+    "reason": "Verified URL is reachable and still shows relevant cancellation/subscription/account-management signals.",
+    "title": "",
+    "detectedSignals": [
+      "cancellation",
+      "subscription_or_account_management",
+      "login_or_account_access"
+    ],
+    "notes": "Official Amazon Germany two-click cancellation route."
+  },
+  {
+    "company": "Spotify",
+    "url": "https://www.spotify.com/de-en/signed-out/cancel/",
+    "canonicalUrl": "https://www.spotify.com/de-en/signed-out/cancel",
+    "status": "healthy",
+    "httpStatus": 200,
+    "finalUrl": "https://www.spotify.com/de-en/signed-out/cancel/",
+    "redirectChanged": false,
+    "lastChecked": "2026-07-29T06:18:23.571Z",
+    "lastGood": "2026-07-29T06:18:23.571Z",
+    "failureCount": 0,
+    "reason": "Verified URL is reachable and still shows relevant cancellation/subscription/account-management signals.",
+    "title": "Cancel Subscription - Spotify",
+    "detectedSignals": [
+      "cancellation",
+      "subscription_or_account_management"
+    ],
+    "notes": "Official Spotify cancellation route."
+  },
+  {
+    "company": "Canva",
+    "url": "https://www.canva.com/help/cancel-canva-plan/",
+    "canonicalUrl": "https://www.canva.com/help/cancel-canva-plan",
+    "status": "warning",
+    "httpStatus": 403,
+    "finalUrl": "https://www.canva.com/help/cancel-canva-plan/",
+    "redirectChanged": false,
+    "lastChecked": "2026-07-29T06:18:24.349Z",
+    "lastGood": "",
+    "failureCount": 1,
+    "reason": "HTTP 403: access is restricted or rate limited. This can be normal for login/account pages.",
+    "title": "Canva",
+    "detectedSignals": [
+      "cancellation",
+      "subscription_or_account_management",
+      "login_or_account_access"
+    ],
+    "notes": "Official Canva help page for cancelling a Canva plan. Boss confirmed this is a page to save."
+  },
+  {
+    "company": "Stan",
+    "url": "https://help.stan.com.au/hc/en-us/articles/202759790-How-do-I-cancel-my-Stan-account",
+    "canonicalUrl": "https://help.stan.com.au/hc/en-us/articles/202759790-How-do-I-cancel-my-Stan-account",
+    "status": "warning",
+    "httpStatus": 403,
+    "finalUrl": "https://help.stan.com.au/hc/en-us/articles/202759790-How-do-I-cancel-my-Stan-account",
+    "redirectChanged": false,
+    "lastChecked": "2026-07-29T06:18:26.197Z",
+    "lastGood": "",
+    "failureCount": 1,
+    "reason": "HTTP 403: access is restricted or rate limited. This can be normal for login/account pages.",
+    "title": "Just a moment...",
+    "detectedSignals": [
+      "cancellation",
+      "subscription_or_account_management"
+    ],
+    "notes": "Official Stan help article for cancelling a Stan subscription. Boss manually reviewed this page."
+  },
+  {
+    "company": "HelloFresh",
+    "url": "https://www.hellofresh.com/about/how-to-cancel-hellofresh-subscription",
+    "canonicalUrl": "https://www.hellofresh.com/about/how-to-cancel-hellofresh-subscription",
+    "status": "healthy",
+    "httpStatus": 200,
+    "finalUrl": "https://www.hellofresh.com/about/how-to-cancel-hellofresh-subscription",
+    "redirectChanged": false,
+    "lastChecked": "2026-07-29T06:18:27.053Z",
+    "lastGood": "2026-07-29T06:18:27.053Z",
+    "failureCount": 0,
+    "reason": "Verified URL is reachable and still shows relevant cancellation/subscription/account-management signals.",
+    "title": "How to Cancel a HelloFresh Subscription | HelloFresh",
+    "detectedSignals": [
+      "cancellation",
+      "subscription_or_account_management",
+      "login_or_account_access"
+    ],
+    "notes": "Official HelloFresh page for cancelling a HelloFresh subscription. Boss manually reviewed this page."
+  },
+  {
+    "company": "Nintendo",
+    "url": "https://www.nintendo.com/en-gb/Legal-information/Service-Termination/Service-Termination-2234682.html",
+    "canonicalUrl": "https://www.nintendo.com/en-gb/Legal-information/Service-Termination/Service-Termination-2234682.html",
+    "status": "healthy",
+    "httpStatus": 200,
+    "finalUrl": "https://www.nintendo.com/en-gb/Legal-information/Service-Termination/Service-Termination-2234682.html",
+    "redirectChanged": false,
+    "lastChecked": "2026-07-29T06:18:29.572Z",
+    "lastGood": "2026-07-29T06:18:29.572Z",
+    "failureCount": 0,
+    "reason": "Verified URL is reachable and still shows relevant cancellation/subscription/account-management signals.",
+    "title": "Service Termination | Legal information | Nintendo UK",
+    "detectedSignals": [
+      "cancellation",
+      "subscription_or_account_management",
+      "login_or_account_access"
+    ],
+    "notes": "Official Nintendo service termination page."
+  },
+  {
+    "company": "ChatGPT / OpenAI",
+    "url": "https://help.openai.com/en/articles/7232927-how-do-i-cancel-my-chatgpt-subscription",
+    "canonicalUrl": "https://help.openai.com/en/articles/7232927-how-do-i-cancel-my-chatgpt-subscription",
+    "status": "warning",
+    "httpStatus": 403,
+    "finalUrl": "https://help.openai.com/en/articles/7232927-how-do-i-cancel-my-chatgpt-subscription",
+    "redirectChanged": false,
+    "lastChecked": "2026-07-29T06:18:30.566Z",
+    "lastGood": "",
+    "failureCount": 1,
+    "reason": "HTTP 403: access is restricted or rate limited. This can be normal for login/account pages.",
+    "title": "",
+    "detectedSignals": [
+      "cancellation",
+      "subscription_or_account_management"
+    ],
+    "notes": "Official OpenAI cancellation instructions."
+  },
+  {
+    "company": "Microsoft",
+    "url": "https://support.microsoft.com/en-US/accounts-billing/subscriptions/cancel-your-microsoft-subscription",
+    "canonicalUrl": "https://support.microsoft.com/en-US/accounts-billing/subscriptions/cancel-your-microsoft-subscription",
+    "status": "healthy",
+    "httpStatus": 200,
+    "finalUrl": "https://support.microsoft.com/en-US/accounts-billing/subscriptions/cancel-your-microsoft-subscription",
+    "redirectChanged": false,
+    "lastChecked": "2026-07-29T06:18:31.253Z",
+    "lastGood": "2026-07-29T06:18:31.253Z",
+    "failureCount": 0,
+    "reason": "Verified URL is reachable and still shows relevant cancellation/subscription/account-management signals.",
+    "title": "Cancel your Microsoft subscription | Microsoft Support",
+    "detectedSignals": [
+      "cancellation",
+      "subscription_or_account_management",
+      "login_or_account_access"
+    ],
+    "notes": "Official Microsoft Support page explaining how to cancel Microsoft subscriptions."
+  }
+]

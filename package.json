@@ -1,6 +1,21 @@
 {
+  "name": "kickenut",
+  "version": "1.0.0",
+  "private": true,
+  "engines": {
+    "node": ">=20"
+  },
   "dependencies": {
     "cors": "^2.8.6",
     "express": "^5.2.1"
+  },
+  "scripts": {
+    "start": "node server.js",
+    "test": "npm run test:search && npm run test:launch && npm run test:load",
+    "test:search": "node test-search-integration.js",
+    "test:launch": "node test-launch-protections.js",
+    "test:load": "node load-test.js",
+    "check:syntax": "find . -name '*.js' -not -path './node_modules/*' -print0 | xargs -0 -n1 node --check",
+    "health:verified": "node run-verified-health-check.js"
   }
 }
