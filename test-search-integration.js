@@ -263,6 +263,16 @@ async function fakeOfficialFetch(url) {
     );
   }
 
+  if (urlText === "https://www.dropbox.com/" || urlText === "https://help.dropbox.com/") {
+    return htmlResponse(
+      `<!doctype html>
+      <html>
+        <head><title>Dropbox</title></head>
+        <body><main><h1>Dropbox</h1><p>Official Dropbox website and help center.</p></main></body>
+      </html>`
+    );
+  }
+
   if (urlText === "https://www.hellofresh.com/about/how-to-cancel-hellofresh-subscription") {
     return htmlResponse(
       `<!doctype html>
@@ -537,6 +547,8 @@ async function fakeVerifiedHealthFetch(url) {
     assert(html.includes("officialSiteButton.disabled = false"), "Official Website must be enabled when active.");
     assert(html.includes("if (data.officialSite)"), "No-result responses with a safe officialSite must activate the button.");
     assert(html.includes("activateOfficialSiteButton(query);"), "Known no-result official sites must activate immediately.");
+    assert(html.includes("window.open(storedOfficialSiteUrl, \"_blank\", \"noopener,noreferrer\")"), "Official Website must open only from a click in a new tab.");
+    assert(html.includes("target=\"_blank\""), "Open official result must open in a new tab.");
     assert(html.includes("activateOfficialSiteButton(lastSearch);"), "Successful result flow must still activate after return.");
     assert(html.includes("openOfficialSite()"), "Official-site button must open the derived official site.");
     assert(html.includes("kickenutOfficialSiteUrl"), "Frontend must remember the official site only for the current return flow.");
@@ -555,7 +567,7 @@ async function fakeVerifiedHealthFetch(url) {
 
     const successBranch = html.match(/if \(data\.link\) \{([\s\S]*?)\} else \{/);
     assert(successBranch, "Frontend must keep a separate successful-result branch.");
-    assert(!successBranch[1].includes("activateOfficialSiteButton(query);"), "Successful result must still wait for return before activating Official Website.");
+    assert(successBranch[1].includes("activateOfficialSiteButton(query);"), "Successful result must activate Official Website when Open official result activates.");
   }
 
   assert.strictEqual(normaliseKey("YouTube Premium"), "youtubepremium");
@@ -573,6 +585,7 @@ async function fakeVerifiedHealthFetch(url) {
   assert.strictEqual(deriveOfficialSiteUrl("https://www.canva.com/help/cancel-canva-plan/", "Canva"), "https://www.canva.com/");
   assert.strictEqual(deriveOfficialSiteUrl("https://support.apple.com/en-us/118428", "Apple"), "https://www.apple.com/");
   assert.strictEqual(deriveOfficialSiteUrl("https://support.apple.com/billing", "Apple"), "https://www.apple.com/");
+  assert.strictEqual(deriveOfficialSiteUrl("https://help.dropbox.com/", "Dropbox"), "https://www.dropbox.com/");
   assert.strictEqual(deriveOfficialSiteUrl("https://www.spotify.com/de-en/signed-out/cancel/", "Spotify"), "https://www.spotify.com/");
   assert.strictEqual(deriveOfficialSiteUrl("https://translate.google.com/?u=https://example.com"), "");
 
@@ -1045,6 +1058,17 @@ async function fakeVerifiedHealthFetch(url) {
   assert(!appleNoRoute.link, "Apple no-result fallback test should not return a cancellation route.");
   assert(appleNoRoute.error.startsWith("No official cancellation route found yet."));
   assert.strictEqual(appleNoRoute.officialSite, "https://www.apple.com/", "Apple no-result should expose its safe known official website.");
+
+  fetchCalls.length = 0;
+  const dropboxNoRoute = await searchCancellationRoute("Dropbox", {
+    fetchImpl: fakeOfficialFetch,
+    disableDiscoveryCache: true,
+    maxPages: 8
+  });
+  assert(!dropboxNoRoute.link, "Dropbox should remain a clean no-result when no safe cancellation route is found.");
+  assert(dropboxNoRoute.error.startsWith("No official cancellation route found yet."));
+  assert.strictEqual(dropboxNoRoute.officialSite, "https://www.dropbox.com/", "Dropbox no-result should expose its safe official website.");
+  assert(fetchCalls.every((url) => !url.includes("google.com/search")), "Dropbox fallback must not use search engines.");
 
   fetchCalls.length = 0;
   const unknown = await searchCancellationRoute("zzzzunknowncompany", {

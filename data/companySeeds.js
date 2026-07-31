@@ -68,6 +68,15 @@ module.exports = [
     ]
   },
   {
+    id: "dropbox",
+    company: "Dropbox",
+    aliases: ["dropbox", "dropbox plus", "dropbox subscription", "dropbox account"],
+    officialDomains: ["dropbox.com", "www.dropbox.com", "help.dropbox.com"],
+    germanStartUrls: [],
+    englishStartUrls: ["https://www.dropbox.com/", "https://help.dropbox.com/"],
+    candidateUrls: []
+  },
+  {
     id: "hellofresh",
     company: "HelloFresh",
     aliases: ["hellofresh", "hello fresh", "hellofresh subscription", "hello fresh subscription"],
