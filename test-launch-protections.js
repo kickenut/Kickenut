@@ -73,6 +73,31 @@ function mockResponse() {
   return res;
 }
 
+async function requestJsonFromListeningApp(app, requestPath) {
+  const httpServer = await new Promise((resolve, reject) => {
+    const server = app.listen(0, "127.0.0.1", () => resolve(server));
+    server.on("error", reject);
+  });
+
+  try {
+    const { port } = httpServer.address();
+    const response = await fetch(`http://127.0.0.1:${port}${requestPath}`);
+    return {
+      status: response.status,
+      body: await response.json()
+    };
+  } finally {
+    await new Promise((resolve, reject) => {
+      httpServer.close((err) => {
+        if (err) reject(err);
+        else resolve();
+      });
+    });
+
+    await app.locals.searchRuntime.shutdown({ graceMs: 10 });
+  }
+}
+
 (async () => {
   {
     let calls = 0;
@@ -327,6 +352,24 @@ function mockResponse() {
     });
     assert.strictEqual(response.statusCode, 200);
     assert.strictEqual(response.body.link, "https://endpointcheck.example/cancel");
+  }
+
+  {
+    const app = createApp({
+      env: {
+        NODE_ENV: "test",
+        KICKENUT_SEARCH_TIMEOUT_MS: "2500",
+        KICKENUT_IP_RATE_LIMIT_MAX: "100",
+        KICKENUT_QUERY_RATE_LIMIT_MAX: "100"
+      }
+    });
+
+    const response = await requestJsonFromListeningApp(app, "/search?q=Dropbox");
+    assert.strictEqual(response.status, 200, "Real Express /search?q=Dropbox request must complete normally.");
+    assert(!response.body.link, "Dropbox must not return an invented cancellation result.");
+    assert(response.body.error.startsWith("No official cancellation route found yet."));
+    assert.strictEqual(response.body.officialSite, "https://www.dropbox.com/");
+    assert(!/google|forum|reddit|quora|blog/i.test(response.body.officialSite), "Dropbox officialSite must not be a third-party or search result.");
   }
 
   {

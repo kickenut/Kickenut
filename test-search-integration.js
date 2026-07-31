@@ -1068,6 +1068,7 @@ async function fakeVerifiedHealthFetch(url) {
   assert(!dropboxNoRoute.link, "Dropbox should remain a clean no-result when no safe cancellation route is found.");
   assert(dropboxNoRoute.error.startsWith("No official cancellation route found yet."));
   assert.strictEqual(dropboxNoRoute.officialSite, "https://www.dropbox.com/", "Dropbox no-result should expose its safe official website.");
+  assert.strictEqual(fetchCalls.length, 0, "Curated fallback-only official-site seeds must not burn the search timeout on broad live crawling.");
   assert(fetchCalls.every((url) => !url.includes("google.com/search")), "Dropbox fallback must not use search engines.");
 
   fetchCalls.length = 0;
