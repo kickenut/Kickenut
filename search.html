@@ -943,6 +943,11 @@
 
 		        if (data.link) {
 			          rememberOfficialSite(data);
+		          if (data.officialSite) {
+		            activateOfficialSiteButton(query);
+		          } else {
+		            resetOfficialSiteButton();
+		          }
 		          showManualResultLink(data.link);
 		        } else {
 		          hideLoading();
