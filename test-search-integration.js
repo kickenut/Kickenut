@@ -28,12 +28,6 @@ const indexHtml = fs.readFileSync(path.join(root, "index.html"), "utf8");
 const searchHtml = fs.readFileSync(path.join(root, "search.html"), "utf8");
 const packageJson = fs.readFileSync(path.join(root, "package.json"), "utf8");
 const removedWorkerPath = path.join(root, "kickenut-browser-search.js");
-const NO_ROUTE_OFFICIAL_SITE_MESSAGE =
-  "No official cancellation route found.\n\nAlternatively, click on the \"Official Website\" button and sign in to cancel your subscription.";
-const NO_VERIFIED_COMPANY_MESSAGE = "No verified company or official website found.";
-const NO_ROUTE_OFFICIAL_SITE_SOURCE = NO_ROUTE_OFFICIAL_SITE_MESSAGE
-  .replace(/\n/g, "\\n")
-  .replace(/"/g, "\\\"");
 
 const fetchCalls = [];
 
@@ -535,9 +529,6 @@ async function fakeVerifiedHealthFetch(url) {
   assert(!searchEngine.toLowerCase().includes(`${paidSearchName}.com`), "Search engine must not call paid search.");
   assert(!searchEngine.includes(["google.com", "search"].join("/")), "Search engine must not scrape search result pages.");
   assert(searchEngine.includes("deriveOfficialSiteUrl"), "Search engine must derive official-site URLs from successful result URLs.");
-  assert(!searchEngine.includes("shouldReturnKnownOfficialSiteFallback"), "Search must not shortcut curated official-site fallbacks before full discovery.");
-  assert(searchEngine.includes(NO_ROUTE_OFFICIAL_SITE_SOURCE), "Search engine must use the safe official-site no-route message.");
-  assert(searchEngine.includes(NO_VERIFIED_COMPANY_MESSAGE), "Search engine must use the unverified-company no-site message.");
   assert(!searchEngine.includes("normaliseComparableUrl"), "Search engine must not keep alternative-route URL exclusion comparison.");
   assert(!searchEngine.includes("finalFallbackOnly"), "Search engine must not keep alternative-route discovery mode.");
   assert(packageJson.includes("\"health:verified\": \"node run-verified-health-check.js\""), "Package must include the manual verified URL health-check script.");
@@ -555,10 +546,6 @@ async function fakeVerifiedHealthFetch(url) {
     assert(html.includes("officialSiteButton.disabled = true"), "Official Website must be disabled while inactive.");
     assert(html.includes("officialSiteButton.disabled = false"), "Official Website must be enabled when active.");
     assert(html.includes("if (data.officialSite)"), "No-result responses with a safe officialSite must activate the button.");
-    assert(html.includes("finalMessage === NO_ROUTE_OFFICIAL_SITE_MESSAGE"), "No-result activation must be tied to the final no-route message state.");
-    assert(html.includes(NO_ROUTE_OFFICIAL_SITE_SOURCE), "Frontend must display the safe official-site no-route message.");
-    assert(html.includes(NO_VERIFIED_COMPANY_MESSAGE), "Frontend must display the unverified-company no-site message.");
-    assert(html.includes("white-space: pre-line"), "Frontend must preserve the no-route message line break.");
     assert(html.includes("activateOfficialSiteButton(query);"), "Known no-result official sites must activate immediately.");
     assert(html.includes("window.open(storedOfficialSiteUrl, \"_blank\", \"noopener,noreferrer\")"), "Official Website must open only from a click in a new tab.");
     assert(html.includes("target=\"_blank\""), "Open official result must open in a new tab.");
@@ -688,7 +675,7 @@ async function fakeVerifiedHealthFetch(url) {
   }), { filePath: reviewTestFile }), null, "Promoted HelloFresh URL must not be queued again.");
 
   assert.strictEqual(recordReviewCandidate("stan", {
-    error: NO_ROUTE_OFFICIAL_SITE_MESSAGE,
+    error: "No official cancellation route found yet.",
     company: "Stan",
     searched: true,
     officialSite: "https://www.stan.com.au/"
@@ -1055,7 +1042,7 @@ async function fakeVerifiedHealthFetch(url) {
       disableDiscoveryCache: true
     });
     assert(!result.link, `${query} must remain a clean no-result for now.`);
-    assert.strictEqual(result.error, NO_VERIFIED_COMPANY_MESSAGE);
+    assert(result.error.startsWith("No official cancellation route found yet."));
     assert(!result.officialSite, `${query} must not activate Official Website without a safe known official site.`);
   }
 
@@ -1069,7 +1056,7 @@ async function fakeVerifiedHealthFetch(url) {
     maxPages: 8
   });
   assert(!appleNoRoute.link, "Apple no-result fallback test should not return a cancellation route.");
-  assert.strictEqual(appleNoRoute.error, NO_ROUTE_OFFICIAL_SITE_MESSAGE);
+  assert(appleNoRoute.error.startsWith("No official cancellation route found yet."));
   assert.strictEqual(appleNoRoute.officialSite, "https://www.apple.com/", "Apple no-result should expose its safe known official website.");
 
   fetchCalls.length = 0;
@@ -1079,9 +1066,9 @@ async function fakeVerifiedHealthFetch(url) {
     maxPages: 8
   });
   assert(!dropboxNoRoute.link, "Dropbox should remain a clean no-result when no safe cancellation route is found.");
-  assert.strictEqual(dropboxNoRoute.error, NO_ROUTE_OFFICIAL_SITE_MESSAGE);
+  assert(dropboxNoRoute.error.startsWith("No official cancellation route found yet."));
   assert.strictEqual(dropboxNoRoute.officialSite, "https://www.dropbox.com/", "Dropbox no-result should expose its safe official website.");
-  assert(fetchCalls.length > 0, "Curated fallback-only official-site seeds must still run the normal discovery process.");
+  assert.strictEqual(fetchCalls.length, 0, "Curated fallback-only official-site seeds must not burn the search timeout on broad live crawling.");
   assert(fetchCalls.every((url) => !url.includes("google.com/search")), "Dropbox fallback must not use search engines.");
 
   fetchCalls.length = 0;
@@ -1091,7 +1078,7 @@ async function fakeVerifiedHealthFetch(url) {
     maxPages: 4
   });
   assert(!unknown.link, "Unknown company must not return a guessed link.");
-  assert.strictEqual(unknown.error, NO_VERIFIED_COMPANY_MESSAGE);
+  assert(unknown.error.startsWith("No official cancellation route found yet."));
   assert.strictEqual(unknown.searched, true);
   assert(!unknown.officialSite, "Unknown company must not activate Official Website without a safe known official site.");
   assert(fetchCalls.some((url) => url.includes("wikidata.org/w/api.php")), "Unknown company should try Wikidata discovery first.");

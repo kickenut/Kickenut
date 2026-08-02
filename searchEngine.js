@@ -14,9 +14,6 @@ const DEFAULT_ROUTE_PATH_TIMEOUT_MS = 900;
 const DISCOVERED_DOMAINS_FILE = path.join(__dirname, "data", "discoveredDomains.json");
 const DEFAULT_DISCOVERED_DOMAIN_CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 const DEFAULT_DISCOVERED_DOMAIN_CACHE_MAX_ENTRIES = 250;
-const NO_ROUTE_OFFICIAL_SITE_MESSAGE =
-  "No official cancellation route found.\n\nAlternatively, click on the \"Official Website\" button and sign in to cancel your subscription.";
-const NO_VERIFIED_COMPANY_MESSAGE = "No verified company or official website found.";
 
 const STRONG_GERMAN_TERMS = [
   "vertraege hier kuendigen",
@@ -422,6 +419,18 @@ function deriveKnownOfficialSiteFallback(seed) {
   return getSeedEnglishOfficialSite(seed) || getSeedEnglishOfficialDomainSite(seed) || "";
 }
 
+function hasExplicitRouteCandidates(seed) {
+  return (seed?.candidateUrls || []).some((url) => Boolean(safeUrl(url)));
+}
+
+function shouldReturnKnownOfficialSiteFallback(seed) {
+  return (
+    companySeeds.includes(seed) &&
+    !hasExplicitRouteCandidates(seed) &&
+    Boolean(deriveKnownOfficialSiteFallback(seed))
+  );
+}
+
 function deriveEnglishLocaleHomepage(url) {
   const segments = (url.pathname || "")
     .split("/")
@@ -812,10 +821,14 @@ function formatVerifiedResult(result) {
 }
 
 function formatNoResult(query, seed) {
+  const exampleDomain = seed?.officialDomains?.[0] || generateDomainCandidates(query)[0] || "";
+  const hint = exampleDomain
+    ? ` Try entering the company's official website, for example ${exampleDomain}.`
+    : "";
   const officialSite = deriveKnownOfficialSiteFallback(seed);
 
   return {
-    error: officialSite ? NO_ROUTE_OFFICIAL_SITE_MESSAGE : NO_VERIFIED_COMPANY_MESSAGE,
+    error: `No official cancellation route found yet.${hint}`,
     company: seed?.company || String(query || "").trim(),
     searched: true,
     officialSite,
@@ -1464,6 +1477,7 @@ async function searchCancellationRoute(query, options = {}) {
 
   const seed = getCompanySeed(cleanQuery) || await discoverCompanySeed(cleanQuery, searchOptions);
   if (!seed) return formatNoResult(cleanQuery);
+  if (shouldReturnKnownOfficialSiteFallback(seed)) return formatNoResult(cleanQuery, seed);
 
   const discovered = await discoverOfficialRoute(cleanQuery, seed, searchOptions);
   return discovered || formatNoResult(cleanQuery, seed);
