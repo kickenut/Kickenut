@@ -160,6 +160,7 @@
       font-size: 16px;
       line-height: 1.5;
       min-height: 35px;
+      white-space: pre-line;
     }
 
     .search-status-row {
@@ -468,6 +469,10 @@
 	    let officialSiteUrl = "";
 	    let resultSent = false;
 	    let userActuallyLeft = false;
+	    const NO_ROUTE_OFFICIAL_SITE_MESSAGE =
+	      "No official cancellation route found.\n\nAlternatively, click on the \"Official Website\" button and sign in to cancel your subscription.";
+	    const NO_VERIFIED_COMPANY_MESSAGE =
+	      "No verified company or official website found.";
     let progressTimer = null;
     let scanTimer = null;
     let progress = 0;
@@ -951,17 +956,21 @@
 		          showManualResultLink(data.link);
 		        } else {
 		          hideLoading();
-		          if (data.officialSite) {
+		          const finalMessage =
+		            data.error ||
+		            data.notes ||
+		            NO_VERIFIED_COMPANY_MESSAGE;
+
+		          if (
+		            finalMessage === NO_ROUTE_OFFICIAL_SITE_MESSAGE &&
+		            data.officialSite
+		          ) {
 		            rememberOfficialSite(data);
 		            activateOfficialSiteButton(query);
 		          } else {
 		            resetOfficialSiteButton();
 		          }
-		          showDefaultMessage(
-            data.error ||
-            data.notes ||
-            "No official cancellation route found yet. Try entering the company's official website."
-          );
+		          showDefaultMessage(finalMessage);
         }
       } catch (error) {
         if (error.name === "AbortError" || !isCurrentSearch(requestId, query)) return;
