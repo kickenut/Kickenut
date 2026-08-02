@@ -18,6 +18,9 @@ const {
   readinessState,
   securityHeaders
 } = require("./server");
+const NO_ROUTE_OFFICIAL_SITE_MESSAGE =
+  "No official cancellation route found.\n\nAlternatively, click on the \"Official Website\" button and sign in to cancel your subscription.";
+const NO_VERIFIED_COMPANY_MESSAGE = "No verified company or official website found.";
 
 function wait(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -107,7 +110,7 @@ async function requestJsonFromListeningApp(app, requestPath) {
         if (query === "Cache Miss") {
           return {
             company: query,
-            error: "No official cancellation route found yet.",
+            error: NO_VERIFIED_COMPANY_MESSAGE,
             searched: true
           };
         }
@@ -356,6 +359,13 @@ async function requestJsonFromListeningApp(app, requestPath) {
 
   {
     const app = createApp({
+      searchRunner: async () => ({
+        error: NO_ROUTE_OFFICIAL_SITE_MESSAGE,
+        company: "Dropbox",
+        searched: true,
+        officialSite: "https://www.dropbox.com/",
+        notes: "No verified result exists and official-site discovery did not find a clear cancellation page."
+      }),
       env: {
         NODE_ENV: "test",
         KICKENUT_SEARCH_TIMEOUT_MS: "2500",
@@ -367,7 +377,7 @@ async function requestJsonFromListeningApp(app, requestPath) {
     const response = await requestJsonFromListeningApp(app, "/search?q=Dropbox");
     assert.strictEqual(response.status, 200, "Real Express /search?q=Dropbox request must complete normally.");
     assert(!response.body.link, "Dropbox must not return an invented cancellation result.");
-    assert(response.body.error.startsWith("No official cancellation route found yet."));
+    assert.strictEqual(response.body.error, NO_ROUTE_OFFICIAL_SITE_MESSAGE);
     assert.strictEqual(response.body.officialSite, "https://www.dropbox.com/");
     assert(!/google|forum|reddit|quora|blog/i.test(response.body.officialSite), "Dropbox officialSite must not be a third-party or search result.");
   }
