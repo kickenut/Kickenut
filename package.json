@@ -15,6 +15,7 @@
     "test:search": "node test-search-integration.js",
     "test:launch": "node test-launch-protections.js",
     "test:load": "node load-test.js",
+    "probe:search": "node diagnose-search.js",
     "check:syntax": "find . -name '*.js' -not -path './node_modules/*' -print0 | xargs -0 -n1 node --check",
     "health:verified": "node run-verified-health-check.js"
   }

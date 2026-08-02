@@ -71,6 +71,16 @@ function cloneResult(result) {
   return JSON.parse(JSON.stringify(result));
 }
 
+function isPositiveResult(result) {
+  return Boolean(result?.link || result?.officialSite);
+}
+
+function shouldCacheSearchResult(result) {
+  if (!result) return false;
+  if (result.cacheable === false) return false;
+  return true;
+}
+
 function nowMs() {
   return Date.now();
 }
@@ -104,7 +114,7 @@ class SearchResultCache {
   }
 
   set(key, result) {
-    const negative = !result || !result.link;
+    const negative = !isPositiveResult(result);
     const ttlMs = negative ? this.negativeTtlMs : this.positiveTtlMs;
     if (ttlMs <= 0) return;
 
@@ -117,6 +127,10 @@ class SearchResultCache {
     });
 
     this.prune();
+  }
+
+  clear() {
+    this.entries.clear();
   }
 
   prune() {
@@ -351,6 +365,10 @@ function createSearchRuntime(options = {}) {
     metrics.queue.maxQueued = Math.max(metrics.queue.maxQueued, queue.length);
   }
 
+  function getDiagnostics(runtimeOptions = {}) {
+    return runtimeOptions.diagnostics?.enabled ? runtimeOptions.diagnostics : null;
+  }
+
   function runQueued() {
     while (activeCount < config.maxConcurrent && queue.length) {
       const item = queue.shift();
@@ -364,6 +382,9 @@ function createSearchRuntime(options = {}) {
 
       activeCount += 1;
       updateQueueMetrics();
+      item.diagnostics?.event("queue_started", {
+        queueWaitMs: Date.now() - item.queuedAt
+      });
 
       Promise.resolve()
         .then(item.task)
@@ -379,6 +400,8 @@ function createSearchRuntime(options = {}) {
   }
 
   function schedule(task, controller) {
+    const diagnostics = getDiagnostics(controller.runtimeOptions);
+
     if (!accepting) {
       return Promise.reject(new ShutdownError());
     }
@@ -386,6 +409,9 @@ function createSearchRuntime(options = {}) {
     if (activeCount < config.maxConcurrent) {
       activeCount += 1;
       updateQueueMetrics();
+      diagnostics?.event("queue_started", {
+        queueWaitMs: 0
+      });
 
       return Promise.resolve()
         .then(task)
@@ -406,6 +432,8 @@ function createSearchRuntime(options = {}) {
       let settled = false;
       const item = {
         controller,
+        diagnostics,
+        queuedAt: Date.now(),
         task,
         resolve(value) {
           if (settled) return;
@@ -429,6 +457,10 @@ function createSearchRuntime(options = {}) {
           updateQueueMetrics();
           metrics.queue.rejected += 1;
           metrics.searches.overloaded += 1;
+          item.diagnostics?.event("queue_rejected", {
+            reason: "queue-timeout",
+            queueWaitMs: Date.now() - item.queuedAt
+          });
           item.reject(new OverloadError("Search queue wait timed out."));
         }
       }, config.queueTimeoutMs);
@@ -451,10 +483,19 @@ function createSearchRuntime(options = {}) {
 
   async function executeSearch(query, runtimeOptions, controller) {
     const timeoutMs = runtimeOptions.deep ? config.deepSearchTimeoutMs : config.searchTimeoutMs;
+    const diagnostics = getDiagnostics(runtimeOptions);
+    const stage = diagnostics?.beginStage("runtime_search_execution", {
+      timeoutMs,
+      deadlineMs: Date.now() + timeoutMs
+    });
     let timeoutId = null;
 
     const timeoutPromise = new Promise((_, reject) => {
       timeoutId = setTimeout(() => {
+        diagnostics?.event("abort_source", {
+          source: "runtime-global-timeout",
+          timeoutMs
+        });
         controller.abort();
         reject(new SearchTimeoutError(timeoutMs));
       }, timeoutMs);
@@ -471,6 +512,9 @@ function createSearchRuntime(options = {}) {
       ]);
     } finally {
       clearTimeout(timeoutId);
+      diagnostics?.endStage(stage, {
+        aborted: controller.signal.aborted
+      });
     }
   }
 
@@ -517,6 +561,9 @@ function createSearchRuntime(options = {}) {
     const startedAt = Date.now();
     const key = makeSearchKey(query, runtimeOptions);
     const queryKey = normaliseKey(query);
+    const diagnostics = getDiagnostics(runtimeOptions);
+
+    diagnostics?.record("normalizedQuery", queryKey);
 
     metrics.searches.total += 1;
 
@@ -525,8 +572,12 @@ function createSearchRuntime(options = {}) {
     }
 
     const verified = getVerifiedResult(query);
+    diagnostics?.record("verifiedResultLookup", verified
+      ? { found: true, company: verified.company, link: verified.link, officialSite: verified.officialSite || "" }
+      : { found: false });
     if (verified) {
       cache.set(key, verified);
+      diagnostics?.record("cache", { result: "verified-hit", key });
       metrics.searches.cacheHits.verified += 1;
       metrics.searches.completed += 1;
       recordLatency(metrics, Date.now() - startedAt);
@@ -547,6 +598,10 @@ function createSearchRuntime(options = {}) {
 
     const cached = cache.get(key);
     if (cached) {
+      diagnostics?.record("cache", {
+        result: cached.negative ? "negative-hit" : "positive-hit",
+        key
+      });
       metrics.searches.cacheHits.total += 1;
       if (cached.negative) metrics.searches.cacheHits.negative += 1;
       else metrics.searches.cacheHits.positive += 1;
@@ -556,6 +611,7 @@ function createSearchRuntime(options = {}) {
     }
 
     metrics.searches.cacheMisses += 1;
+    diagnostics?.record("cache", { result: "miss", key });
 
     const existing = inflight.get(key);
     if (existing) {
@@ -567,6 +623,7 @@ function createSearchRuntime(options = {}) {
     }
 
     const controller = new AbortController();
+    controller.runtimeOptions = runtimeOptions;
     controllers.add(controller);
 
     const entry = {
@@ -588,12 +645,20 @@ function createSearchRuntime(options = {}) {
 
     entry.promise = scheduledSearch
       .then((result) => {
+        if (controller.signal.aborted) {
+          throw new RequestCancelledError();
+        }
+
         const safeResult = result || {
           error: "No official cancellation route found yet.",
-          searched: true
+          searched: true,
+          cacheable: false
         };
 
-        cache.set(key, safeResult);
+        if (shouldCacheSearchResult(safeResult)) {
+          cache.set(key, safeResult);
+        }
+
         return safeResult;
       })
       .catch((err) => {
@@ -690,8 +755,13 @@ function createSearchRuntime(options = {}) {
     };
   }
 
+  function clearCaches() {
+    cache.clear();
+  }
+
   return {
     config,
+    clearCaches,
     getMetrics,
     getState,
     isReady,

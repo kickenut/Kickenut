@@ -8,6 +8,11 @@ const DEFAULT_MAX_PAGES = 56;
 const DISCOVERY_TIMEOUT_MS = 2500;
 const DEFAULT_SEARCH_TIME_BUDGET_MS = 10000;
 const DEFAULT_DEEP_SEARCH_TIME_BUDGET_MS = 22000;
+const DEFAULT_OFFICIAL_DOMAIN_DISCOVERY_BUDGET_MS = 4500;
+const DEFAULT_CANCELLATION_ROUTE_DISCOVERY_BUDGET_MS = 3200;
+const DEFAULT_DOMAIN_VALIDATION_TIMEOUT_MS = 2500;
+const DEFAULT_MIN_NETWORK_BUDGET_MS = 350;
+const DEFAULT_WIKIDATA_ENTITY_LIMIT = 3;
 const DEFAULT_SEED_CANDIDATE_TIMEOUT_MS = 1200;
 const DEFAULT_START_URL_TIMEOUT_MS = 1800;
 const DEFAULT_ROUTE_PATH_TIMEOUT_MS = 900;
@@ -193,6 +198,18 @@ const ORGANIZATION_HINT_TERMS = [
 ];
 
 const DOMAIN_SUFFIXES = [".com", ".com.au", ".de", ".co", ".io", ".app"];
+const DOMAIN_BASE_STOP_WORDS = new Set([
+  "app",
+  "company",
+  "inc",
+  "llc",
+  "ltd",
+  "membership",
+  "premium",
+  "service",
+  "subscription",
+  "subscriptions"
+]);
 
 function isDeferredSearchKey(key) {
   return (
@@ -419,6 +436,17 @@ function deriveKnownOfficialSiteFallback(seed) {
   return getSeedEnglishOfficialSite(seed) || getSeedEnglishOfficialDomainSite(seed) || "";
 }
 
+function deriveSafeOfficialSiteFallback(seed) {
+  if (!seed) return "";
+
+  return (
+    deriveKnownOfficialSiteFallback(seed) ||
+    getSeedEnglishOfficialSite(seed) ||
+    getSeedEnglishOfficialDomainSite(seed) ||
+    ""
+  );
+}
+
 function hasExplicitRouteCandidates(seed) {
   return (seed?.candidateUrls || []).some((url) => Boolean(safeUrl(url)));
 }
@@ -473,12 +501,41 @@ function normaliseCompanyForDomain(query) {
     .replace(/[^a-z0-9]+/g, "");
 }
 
+function getDomainCandidateBases(query) {
+  const label = getCompanyLabel(query);
+  const compact = normaliseCompanyForDomain(label);
+  const tokenBase = normaliseText(label)
+    .replace(/\+/g, " plus ")
+    .replace(/&/g, " and ")
+    .split(/[^a-z0-9]+/)
+    .filter((token) => token.length >= 3)
+    .filter((token) => !DOMAIN_BASE_STOP_WORDS.has(token))
+    .join("");
+
+  return [...new Set([tokenBase, compact].filter((base) => base.length >= 3))];
+}
+
+function getSimplifiedDiscoveryQueries(query) {
+  const label = getCompanyLabel(query);
+  const simplified = normaliseText(label)
+    .replace(/\+/g, " plus ")
+    .replace(/&/g, " and ")
+    .split(/[^a-z0-9]+/)
+    .filter((token) => token.length >= 3)
+    .filter((token) => !DOMAIN_BASE_STOP_WORDS.has(token))
+    .join(" ");
+
+  if (!simplified || normaliseKey(simplified) === normaliseKey(label)) return [];
+
+  return [simplified];
+}
+
 function getBrandEvidenceTokens(query) {
   return normaliseText(getCompanyLabel(query))
     .replace(/\+/g, " plus ")
     .split(/[^a-z0-9]+/)
     .filter((token) => token.length >= 3)
-    .filter((token) => !["the", "app", "inc", "llc", "ltd", "subscription", "premium"].includes(token));
+    .filter((token) => !["the", ...DOMAIN_BASE_STOP_WORDS].includes(token));
 }
 
 function hasStrongBrandEvidence(query, page) {
@@ -555,6 +612,32 @@ function hasSearchBudget(options = {}, minimumMs = 50) {
   return getRemainingBudgetMs(options) > minimumMs;
 }
 
+function getDiagnostics(options = {}) {
+  return options.diagnostics?.enabled ? options.diagnostics : null;
+}
+
+function readPositiveInteger(value, fallback, minimum = 1) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return fallback;
+  return Math.max(minimum, Math.floor(number));
+}
+
+function withStageBudget(options = {}, budgetMs = DEFAULT_TIMEOUT_MS) {
+  const requestedBudget = readPositiveInteger(budgetMs, DEFAULT_TIMEOUT_MS);
+  const remaining = getRemainingBudgetMs(options);
+  const cappedBudget = Number.isFinite(remaining)
+    ? Math.max(0, Math.min(requestedBudget, remaining))
+    : requestedBudget;
+  const stageDeadlineMs = Date.now() + cappedBudget;
+
+  return {
+    ...options,
+    deadlineMs: options.deadlineMs
+      ? Math.min(options.deadlineMs, stageDeadlineMs)
+      : stageDeadlineMs
+  };
+}
+
 function getBudgetedTimeout(options = {}, fallbackMs = DEFAULT_TIMEOUT_MS) {
   const remaining = getRemainingBudgetMs(options);
   if (!Number.isFinite(remaining)) return fallbackMs;
@@ -564,19 +647,20 @@ function getBudgetedTimeout(options = {}, fallbackMs = DEFAULT_TIMEOUT_MS) {
 function buildTemporarySeed(query, domain, source = "discovered-domain") {
   const cleanDomain = normaliseDomain(domain);
   const company = getCompanyLabel(query);
+  const includeGermanStartUrls = isGermanDomain(cleanDomain);
 
   return {
     id: `${source}-${normaliseKey(company || cleanDomain)}`,
     company: company || cleanDomain,
     aliases: [company, cleanDomain].filter(Boolean),
     officialDomains: [cleanDomain],
-    germanStartUrls: [
+    germanStartUrls: includeGermanStartUrls ? [
       `https://${cleanDomain}/de`,
       `https://${cleanDomain}/de-de`,
       `https://${cleanDomain}/deutschland`,
       `https://${cleanDomain}/help/de`,
       `https://${cleanDomain}/support/de`
-    ],
+    ] : [],
     englishStartUrls: [
       `https://${cleanDomain}/`,
       `https://${cleanDomain}/help`,
@@ -617,6 +701,10 @@ function saveDiscoveredSeed(query, seed, options = {}) {
     savedAt: new Date().toISOString()
   };
   writeDiscoveredDomainCache(cache, cacheFile);
+}
+
+function clearDiscoveredDomainCache(cacheFile = DISCOVERED_DOMAINS_FILE) {
+  writeDiscoveredDomainCache({}, cacheFile);
 }
 
 function stripHtml(html) {
@@ -825,13 +913,14 @@ function formatNoResult(query, seed) {
   const hint = exampleDomain
     ? ` Try entering the company's official website, for example ${exampleDomain}.`
     : "";
-  const officialSite = deriveKnownOfficialSiteFallback(seed);
+  const officialSite = deriveSafeOfficialSiteFallback(seed);
 
   return {
     error: `No official cancellation route found yet.${hint}`,
     company: seed?.company || String(query || "").trim(),
     searched: true,
     officialSite,
+    cacheable: Boolean(officialSite),
     notes: seed
       ? "No verified result exists and official-site discovery did not find a clear cancellation page."
       : "Kickenut could not safely identify an official domain or cancellation route yet."
@@ -839,14 +928,27 @@ function formatNoResult(query, seed) {
 }
 
 async function fetchPage(url, options = {}) {
-  if (!hasSearchBudget(options)) return null;
+  if (!hasSearchBudget(options, options.minimumNetworkBudgetMs || DEFAULT_MIN_NETWORK_BUDGET_MS)) return null;
 
   const fetchImpl = options.fetchImpl || fetch;
   const timeoutMs = getBudgetedTimeout(options, options.timeoutMs || DEFAULT_TIMEOUT_MS);
+  const diagnostics = getDiagnostics(options);
+  const stage = diagnostics?.beginStage("network_fetch_page", {
+    url,
+    source: options.source || "",
+    remainingBeforeMs: getRemainingBudgetMs(options),
+    timeoutMs
+  });
   const acceptLanguage = options.acceptLanguage || getAcceptLanguage(url, options.source);
   const controller = new AbortController();
   const abortFromParent = () => controller.abort();
-  if (options.signal?.aborted) return null;
+  if (options.signal?.aborted) {
+    diagnostics?.endStage(stage, {
+      aborted: true,
+      timeoutSource: "parent-abort-before-start"
+    });
+    return null;
+  }
   options.signal?.addEventListener?.("abort", abortFromParent, { once: true });
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
@@ -863,6 +965,13 @@ async function fetchPage(url, options = {}) {
 
     const contentType = response.headers?.get?.("content-type") || "";
     const html = await response.text();
+    diagnostics?.endStage(stage, {
+      status: response.status || 0,
+      finalUrl: response.url || url,
+      contentType,
+      textBytes: html.length,
+      aborted: controller.signal.aborted
+    });
 
     if (!contentType.includes("text/html") && !html.includes("<html")) {
       return null;
@@ -877,7 +986,15 @@ async function fetchPage(url, options = {}) {
       text: stripHtml(html).slice(0, 10000),
       links: extractLinks(html, finalUrl)
     };
-  } catch {
+  } catch (err) {
+    diagnostics?.endStage(stage, {
+      errorName: err.name || "Error",
+      errorCode: err.code || "",
+      aborted: controller.signal.aborted,
+      timeoutSource: controller.signal.aborted
+        ? (options.signal?.aborted ? "parent-abort" : "stage-timeout")
+        : "network-error"
+    });
     return null;
   } finally {
     clearTimeout(timeout);
@@ -886,13 +1003,26 @@ async function fetchPage(url, options = {}) {
 }
 
 async function fetchJson(url, options = {}) {
-  if (!hasSearchBudget(options)) return null;
+  if (!hasSearchBudget(options, options.minimumNetworkBudgetMs || DEFAULT_MIN_NETWORK_BUDGET_MS)) return null;
 
   const fetchImpl = options.fetchImpl || fetch;
   const timeoutMs = getBudgetedTimeout(options, options.discoveryTimeoutMs || DISCOVERY_TIMEOUT_MS);
+  const diagnostics = getDiagnostics(options);
+  const stage = diagnostics?.beginStage("network_fetch_json", {
+    url,
+    source: options.source || "json-discovery",
+    remainingBeforeMs: getRemainingBudgetMs(options),
+    timeoutMs
+  });
   const controller = new AbortController();
   const abortFromParent = () => controller.abort();
-  if (options.signal?.aborted) return null;
+  if (options.signal?.aborted) {
+    diagnostics?.endStage(stage, {
+      aborted: true,
+      timeoutSource: "parent-abort-before-start"
+    });
+    return null;
+  }
   options.signal?.addEventListener?.("abort", abortFromParent, { once: true });
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
@@ -907,9 +1037,25 @@ async function fetchJson(url, options = {}) {
       }
     });
 
+    diagnostics?.endStage(stage, {
+      status: response.status || 0,
+      finalUrl: response.url || url,
+      aborted: controller.signal.aborted
+    });
+
+    options.lastJsonFetchStatus = response.status || 0;
     if (!response.ok) return null;
     return await response.json();
-  } catch {
+  } catch (err) {
+    diagnostics?.endStage(stage, {
+      errorName: err.name || "Error",
+      errorCode: err.code || "",
+      aborted: controller.signal.aborted,
+      timeoutSource: controller.signal.aborted
+        ? (options.signal?.aborted ? "parent-abort" : "stage-timeout")
+        : "network-error"
+    });
+    options.lastJsonFetchStatus = 0;
     return null;
   } finally {
     clearTimeout(timeout);
@@ -978,17 +1124,39 @@ function hostMatchesCandidateDomain(url, domain) {
   return host === cleanDomain || host === `www.${cleanDomain}`;
 }
 
-function generateDomainCandidates(query) {
-  const base = normaliseCompanyForDomain(getCompanyLabel(query));
-  if (!base || base.length < 3) return [];
+function hostHasBrandEvidence(query, url) {
+  const hostKey = normaliseKey(getHostname(url));
+  if (!hostKey) return false;
 
-  const domains = [
+  const bases = getDomainCandidateBases(query);
+  if (bases.some((base) => base.length >= 4 && hostKey.includes(base))) return true;
+
+  const tokens = getBrandEvidenceTokens(query);
+  if (!tokens.length) return false;
+
+  return tokens.every((token) => hostKey.includes(token));
+}
+
+function canTrustOfficialWebsiteUrlWithoutFetch(query, url, options = {}) {
+  return (
+    options.source === "wikidata-official-website" &&
+    hostHasBrandEvidence(query, url)
+  );
+}
+
+function generateDomainCandidates(query) {
+  const bases = getDomainCandidateBases(query);
+  if (!bases.length) return [];
+
+  const domains = bases.flatMap((base) => [
     ...DOMAIN_SUFFIXES.map((suffix) => `${base}${suffix}`),
     `get${base}.com`
-  ];
+  ]);
 
-  if (hasAustralianHint(query) && !domains.includes(`${base}.com.au`)) {
-    domains.push(`${base}.com.au`);
+  if (hasAustralianHint(query)) {
+    for (const base of bases) {
+      if (!domains.includes(`${base}.com.au`)) domains.push(`${base}.com.au`);
+    }
   }
 
   return [...new Set(domains)];
@@ -998,31 +1166,93 @@ async function validateOfficialWebsite(query, url, options = {}) {
   const cleanUrl = safeUrl(url.startsWith("http") ? url : `https://${url}`);
   if (!cleanUrl) return null;
 
+  const diagnostics = getDiagnostics(options);
+  const stage = diagnostics?.beginStage("domain_validation", {
+    query,
+    url: cleanUrl,
+    source: options.source || ""
+  });
   const originalDomain = normaliseDomain(cleanUrl);
-  if (!originalDomain) return null;
+  if (!originalDomain) {
+    diagnostics?.endStage(stage, { valid: false, reason: "invalid-domain" });
+    return null;
+  }
 
   const page = await fetchPage(cleanUrl, {
     ...options,
-    timeoutMs: options.discoveryTimeoutMs || DISCOVERY_TIMEOUT_MS,
+    timeoutMs: options.domainValidationTimeoutMs || DEFAULT_DOMAIN_VALIDATION_TIMEOUT_MS,
     source: "domain-discovery"
   });
 
-  if (!page || page.status >= 400 || isSoft404Page(page)) return null;
-  if (options.strictHost && !hostMatchesCandidateDomain(page.url || cleanUrl, originalDomain)) return null;
+  if (!page || page.status >= 400 || isSoft404Page(page)) {
+    if (
+      (!page || isBlockedStatus(page.status)) &&
+      canTrustOfficialWebsiteUrlWithoutFetch(query, cleanUrl, options)
+    ) {
+      const seed = buildTemporarySeed(query, originalDomain, options.source || "discovered-domain");
+      diagnostics?.endStage(stage, {
+        valid: true,
+        reason: !page ? "trusted-official-url-fetch-failed" : "trusted-official-url-blocked",
+        officialDomain: seed.officialDomains[0],
+        status: page?.status || 0,
+        finalUrl: page?.url || cleanUrl
+      });
+      diagnostics?.record("officialDomainDiscovered", seed.officialDomains[0]);
+      return seed;
+    }
+
+    diagnostics?.endStage(stage, {
+      valid: false,
+      reason: !page ? "fetch-failed" : page.status >= 400 ? "bad-status" : "soft-404",
+      status: page?.status || 0,
+      finalUrl: page?.url || ""
+    });
+    return null;
+  }
+
+  if (options.strictHost && !hostMatchesCandidateDomain(page.url || cleanUrl, originalDomain)) {
+    diagnostics?.endStage(stage, {
+      valid: false,
+      reason: "strict-host-mismatch",
+      finalUrl: page.url || cleanUrl
+    });
+    return null;
+  }
 
   const pageForBrand = { ...page, expectedBrand: query };
-  if (isParkingPage(pageForBrand)) return null;
-  if (!hasStrongBrandEvidence(query, pageForBrand)) return null;
+  if (isParkingPage(pageForBrand)) {
+    diagnostics?.endStage(stage, { valid: false, reason: "parking-page" });
+    return null;
+  }
 
-  return buildTemporarySeed(query, getHostname(page.url || cleanUrl) || originalDomain, options.source || "discovered-domain");
+  if (!hasStrongBrandEvidence(query, pageForBrand)) {
+    diagnostics?.endStage(stage, { valid: false, reason: "weak-brand-evidence" });
+    return null;
+  }
+
+  const seed = buildTemporarySeed(query, getHostname(page.url || cleanUrl) || originalDomain, options.source || "discovered-domain");
+  diagnostics?.endStage(stage, {
+    valid: true,
+    officialDomain: seed.officialDomains[0],
+    finalUrl: page.url || cleanUrl
+  });
+  diagnostics?.record("officialDomainDiscovered", seed.officialDomains[0]);
+
+  return seed;
 }
 
 async function discoverSeedFromWikidata(query, options = {}) {
+  const diagnostics = getDiagnostics(options);
+  const stage = diagnostics?.beginStage("seed_discovery_wikidata", {
+    query,
+    remainingBeforeMs: getRemainingBudgetMs(options)
+  });
   const searchData = await fetchJson(buildWikidataSearchUrl(query), options);
   const searchResults = Array.isArray(searchData?.search) ? searchData.search : [];
   const inspected = [];
+  const entityLimit = readPositiveInteger(options.wikidataEntityLimit, DEFAULT_WIKIDATA_ENTITY_LIMIT);
 
-  for (const searchEntity of searchResults.slice(0, 5)) {
+  for (const searchEntity of searchResults.slice(0, entityLimit)) {
     if (!hasSearchBudget(options)) break;
     if (!searchEntity?.id) continue;
 
@@ -1045,21 +1275,47 @@ async function discoverSeedFromWikidata(query, options = {}) {
 
     for (const websiteUrl of extractOfficialWebsiteUrls(entry.entity)) {
       if (!hasSearchBudget(options)) break;
+      if (!hostHasBrandEvidence(query, websiteUrl)) {
+        diagnostics?.event("domain_validation_skipped", {
+          url: websiteUrl,
+          reason: "host-lacks-brand-evidence"
+        });
+        continue;
+      }
 
       const seed = await validateOfficialWebsite(query, websiteUrl, {
         ...options,
         source: "wikidata-official-website"
       });
 
-      if (seed) return seed;
+      if (seed) {
+        diagnostics?.endStage(stage, {
+          found: true,
+          inspected: inspected.length,
+          officialDomain: seed.officialDomains[0]
+        });
+        return seed;
+      }
     }
   }
 
+  diagnostics?.endStage(stage, {
+    found: false,
+    inspected: inspected.length
+  });
   return null;
 }
 
 async function discoverSeedFromDomainGuess(query, options = {}) {
-  for (const domain of generateDomainCandidates(query)) {
+  const diagnostics = getDiagnostics(options);
+  const candidates = generateDomainCandidates(query);
+  const stage = diagnostics?.beginStage("seed_discovery_domain_guess", {
+    query,
+    candidates,
+    remainingBeforeMs: getRemainingBudgetMs(options)
+  });
+
+  for (const domain of candidates) {
     if (!hasSearchBudget(options)) break;
 
     const seed = await validateOfficialWebsite(query, `https://${domain}/`, {
@@ -1068,9 +1324,16 @@ async function discoverSeedFromDomainGuess(query, options = {}) {
       source: "safe-domain-guess"
     });
 
-    if (seed) return seed;
+    if (seed) {
+      diagnostics?.endStage(stage, {
+        found: true,
+        officialDomain: seed.officialDomains[0]
+      });
+      return seed;
+    }
   }
 
+  diagnostics?.endStage(stage, { found: false });
   return null;
 }
 
@@ -1080,25 +1343,76 @@ async function discoverCompanySeed(query, options = {}) {
   if (!hasSearchBudget(options)) return null;
 
   const cached = getCachedDiscoveredSeed(query, options);
-  if (cached) return cached;
+  const diagnostics = getDiagnostics(options);
+  if (cached) {
+    diagnostics?.record("companySeedLookup", {
+      result: "cached-discovered-domain",
+      company: cached.company,
+      domains: cached.officialDomains || []
+    });
+    return cached;
+  }
 
   const wikidataSeed = await discoverSeedFromWikidata(query, options);
   if (wikidataSeed) {
+    diagnostics?.record("companySeedLookup", {
+      result: "wikidata",
+      company: wikidataSeed.company,
+      domains: wikidataSeed.officialDomains || []
+    });
     saveDiscoveredSeed(query, wikidataSeed, options);
     return wikidataSeed;
   }
 
+  const wikidataRateLimited = Number(options.lastJsonFetchStatus || 0) === 429;
+  if (!wikidataRateLimited) {
+    for (const discoveryQuery of getSimplifiedDiscoveryQueries(query)) {
+      if (!hasSearchBudget(options, options.minimumNetworkBudgetMs || DEFAULT_MIN_NETWORK_BUDGET_MS)) break;
+
+      const simplifiedWikidataSeed = await discoverSeedFromWikidata(discoveryQuery, options);
+      if (simplifiedWikidataSeed) {
+        diagnostics?.record("companySeedLookup", {
+          result: "simplified-wikidata",
+          query: discoveryQuery,
+          company: simplifiedWikidataSeed.company,
+          domains: simplifiedWikidataSeed.officialDomains || []
+        });
+        saveDiscoveredSeed(query, simplifiedWikidataSeed, options);
+        return simplifiedWikidataSeed;
+      }
+    }
+  } else {
+    diagnostics?.event("wikidata_simplified_discovery_skipped", {
+      reason: "wikidata-rate-limited"
+    });
+  }
+
   const guessedSeed = await discoverSeedFromDomainGuess(query, options);
   if (guessedSeed) {
+    diagnostics?.record("companySeedLookup", {
+      result: "safe-domain-guess",
+      company: guessedSeed.company,
+      domains: guessedSeed.officialDomains || []
+    });
     saveDiscoveredSeed(query, guessedSeed, options);
     return guessedSeed;
   }
 
+  diagnostics?.record("companySeedLookup", { result: "not-found" });
   return null;
+}
+
+function shouldIncludeGermanRouteCandidates(seed) {
+  if ((seed?.officialDomains || []).some((domain) => isGermanDomain(domain))) return true;
+  if ((seed?.candidateUrls || []).some((url) => hasGermanCandidateMarker(url))) return true;
+  if ((seed?.germanStartUrls || []).some((url) => hasGermanCandidateMarker(url))) return true;
+
+  return false;
 }
 
 function buildInitialCandidates(seed) {
   const candidates = [];
+  const includeGermanRoutes = shouldIncludeGermanRouteCandidates(seed);
 
   function push(url, source, priority) {
     const cleanUrl = safeUrl(url);
@@ -1120,11 +1434,15 @@ function buildInitialCandidates(seed) {
     .filter((url) => !hasGermanCandidateMarker(url))
     .forEach((url) => push(url, "english-seed-official-candidate", 110));
 
-  (seed.germanStartUrls || []).forEach((url) => push(url, "german-start-url", 90));
+  if (includeGermanRoutes) {
+    (seed.germanStartUrls || []).forEach((url) => push(url, "german-start-url", 90));
+  }
 
-  for (const domain of seed.officialDomains || []) {
-    for (const path of DIRECT_PATHS_GERMAN) {
-      push(`https://${domain}${path}`, "german-route-path", 80);
+  if (includeGermanRoutes) {
+    for (const domain of seed.officialDomains || []) {
+      for (const path of DIRECT_PATHS_GERMAN) {
+        push(`https://${domain}${path}`, "german-route-path", 80);
+      }
     }
   }
 
@@ -1345,13 +1663,27 @@ async function discoverOfficialRoute(query, seed, options = {}) {
   const maxPages = options.maxPages || (options.deep ? 80 : DEFAULT_MAX_PAGES);
   const visited = new Set();
   const queue = buildInitialCandidates(seed);
+  const diagnostics = getDiagnostics(options);
+  const routeStage = diagnostics?.beginStage("cancellation_route_discovery", {
+    company: seed.company,
+    domains: seed.officialDomains || [],
+    candidatesGenerated: queue.length,
+    maxPages,
+    remainingBeforeMs: getRemainingBudgetMs(options)
+  });
+  diagnostics?.record("discoveryCandidatesGenerated", queue.map((candidate) => ({
+    title: candidate.title,
+    link: candidate.link,
+    source: candidate.source,
+    priority: candidate.priority
+  })));
   let remainingSeedCandidates = queue.filter((candidate) => candidate.source.includes("seed-official-candidate")).length;
   const seedResults = [];
   const inspected = [];
   const results = [];
 
   while (queue.length && inspected.length < maxPages) {
-    if (!hasSearchBudget(options)) break;
+    if (!hasSearchBudget(options, options.minimumNetworkBudgetMs || DEFAULT_MIN_NETWORK_BUDGET_MS)) break;
 
     const candidate = queue.shift();
     const visitKey = candidate.link.replace(/[?#].*$/, "");
@@ -1362,6 +1694,12 @@ async function discoverOfficialRoute(query, seed, options = {}) {
     if (!isOfficialUrl(candidate.link, seed)) continue;
 
     const candidateIsSeedUrl = candidate.source.includes("seed-official-candidate");
+    diagnostics?.event("cancellation_path_attempted", {
+      link: candidate.link,
+      source: candidate.source,
+      priority: candidate.priority,
+      remainingBeforeMs: getRemainingBudgetMs(options)
+    });
     let page = await fetchPage(candidate.link, {
       ...options,
       source: candidate.source,
@@ -1391,6 +1729,11 @@ async function discoverOfficialRoute(query, seed, options = {}) {
       if (candidateIsSeedUrl) {
         seedResults.push(trustedCandidate);
       } else if (isStrongGermanResult(trustedCandidate, candidate)) {
+        diagnostics?.endStage(routeStage, {
+          result: "found-strong-german-trusted-candidate",
+          inspectedCount: inspected.length + 1,
+          link: trustedCandidate.link
+        });
         return trustedCandidate;
       } else {
         results.push(trustedCandidate);
@@ -1401,7 +1744,13 @@ async function discoverOfficialRoute(query, seed, options = {}) {
       if (candidateIsSeedUrl) {
         remainingSeedCandidates -= 1;
         if (remainingSeedCandidates === 0 && seedResults.length) {
-          return rankRouteResults(seedResults)[0];
+          const ranked = rankRouteResults(seedResults)[0];
+          diagnostics?.endStage(routeStage, {
+            result: "found-seed-candidate",
+            inspectedCount: inspected.length,
+            link: ranked.link
+          });
+          return ranked;
         }
       }
       continue;
@@ -1412,6 +1761,11 @@ async function discoverOfficialRoute(query, seed, options = {}) {
       if (candidateIsSeedUrl && scored.confidence !== "Low") {
         seedResults.push(scored);
       } else if (isStrongGermanResult(scored, candidate)) {
+        diagnostics?.endStage(routeStage, {
+          result: "found-strong-german-candidate",
+          inspectedCount: inspected.length,
+          link: scored.link
+        });
         return scored;
       } else {
         results.push(scored);
@@ -1421,7 +1775,13 @@ async function discoverOfficialRoute(query, seed, options = {}) {
     if (candidateIsSeedUrl) {
       remainingSeedCandidates -= 1;
       if (remainingSeedCandidates === 0 && seedResults.length) {
-        return rankRouteResults(seedResults)[0];
+        const ranked = rankRouteResults(seedResults)[0];
+        diagnostics?.endStage(routeStage, {
+          result: "found-seed-candidate",
+          inspectedCount: inspected.length,
+          link: ranked.link
+        });
+        return ranked;
       }
     }
 
@@ -1453,11 +1813,19 @@ async function discoverOfficialRoute(query, seed, options = {}) {
       (b.score || 0) - (a.score || 0)
     ));
 
-  return rankedResults[0] || null;
+  const result = rankedResults[0] || null;
+  diagnostics?.endStage(routeStage, {
+    result: result ? "found-ranked-candidate" : "not-found",
+    inspectedCount: inspected.length,
+    link: result?.link || ""
+  });
+
+  return result;
 }
 
 async function searchCancellationRoute(query, options = {}) {
   const cleanQuery = String(query || "").trim();
+  const diagnostics = getDiagnostics(options);
   if (!cleanQuery) {
     return {
       error: "No query provided",
@@ -1466,6 +1834,9 @@ async function searchCancellationRoute(query, options = {}) {
   }
 
   const verified = getVerifiedResult(cleanQuery);
+  diagnostics?.record("verifiedResultLookup", verified
+    ? { found: true, company: verified.company, link: verified.link, officialSite: verified.officialSite || "" }
+    : { found: false });
   if (verified) return verified;
 
   const searchOptions = {
@@ -1475,11 +1846,32 @@ async function searchCancellationRoute(query, options = {}) {
     )
   };
 
-  const seed = getCompanySeed(cleanQuery) || await discoverCompanySeed(cleanQuery, searchOptions);
+  const knownSeed = getCompanySeed(cleanQuery);
+  diagnostics?.record("companySeedLookup", knownSeed
+    ? { result: "known-seed", company: knownSeed.company, domains: knownSeed.officialDomains || [] }
+    : { result: "known-seed-miss" });
+
+  const domainDiscoveryOptions = withStageBudget(
+    {
+      ...searchOptions,
+      minimumNetworkBudgetMs: DEFAULT_MIN_NETWORK_BUDGET_MS,
+      domainValidationTimeoutMs: options.domainValidationTimeoutMs || DEFAULT_DOMAIN_VALIDATION_TIMEOUT_MS,
+      wikidataEntityLimit: options.wikidataEntityLimit || DEFAULT_WIKIDATA_ENTITY_LIMIT
+    },
+    options.officialDomainDiscoveryBudgetMs || DEFAULT_OFFICIAL_DOMAIN_DISCOVERY_BUDGET_MS
+  );
+  const seed = knownSeed || await discoverCompanySeed(cleanQuery, domainDiscoveryOptions);
   if (!seed) return formatNoResult(cleanQuery);
   if (shouldReturnKnownOfficialSiteFallback(seed)) return formatNoResult(cleanQuery, seed);
 
-  const discovered = await discoverOfficialRoute(cleanQuery, seed, searchOptions);
+  const routeOptions = withStageBudget(
+    {
+      ...searchOptions,
+      minimumNetworkBudgetMs: DEFAULT_MIN_NETWORK_BUDGET_MS
+    },
+    options.cancellationRouteDiscoveryBudgetMs || DEFAULT_CANCELLATION_ROUTE_DISCOVERY_BUDGET_MS
+  );
+  const discovered = await discoverOfficialRoute(cleanQuery, seed, routeOptions);
   return discovered || formatNoResult(cleanQuery, seed);
 }
 
@@ -1490,5 +1882,6 @@ module.exports = {
   discoverCompanySeed,
   discoverOfficialRoute,
   deriveOfficialSiteUrl,
+  clearDiscoveredDomainCache,
   normaliseKey
 };

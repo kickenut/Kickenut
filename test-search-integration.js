@@ -90,7 +90,58 @@ function wikidataEntity(websiteUrl) {
   };
 }
 
-async function fakeOfficialFetch(url) {
+function singleWikidataEntity(id, label, description, websiteUrl) {
+  return {
+    entities: {
+      [id]: {
+        labels: {
+          en: {
+            value: label
+          }
+        },
+        descriptions: {
+          en: {
+            value: description
+          }
+        },
+        claims: {
+          P856: [
+            {
+              mainsnak: {
+                datavalue: {
+                  value: websiteUrl
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+  };
+}
+
+function abortableHang(signal) {
+  return new Promise((resolve, reject) => {
+    const abort = () => {
+      const err = new Error("Aborted");
+      err.name = "AbortError";
+      reject(err);
+    };
+
+    if (signal?.aborted) {
+      abort();
+      return;
+    }
+
+    signal?.addEventListener?.("abort", abort, { once: true });
+  });
+}
+
+function delay(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function fakeOfficialFetch(url, fetchOptions = {}) {
   const urlText = String(url);
   fetchCalls.push(urlText);
 
@@ -109,6 +160,30 @@ async function fakeOfficialFetch(url) {
       });
     }
 
+    if (search === "Fallback Only") {
+      return jsonResponse({
+        search: [
+          {
+            id: "QFALLBACKONLY",
+            label: "Fallback Only",
+            description: "subscription software company"
+          }
+        ]
+      });
+    }
+
+    if (search === "Route Timeout") {
+      return jsonResponse({
+        search: [
+          {
+            id: "QROUTETIMEOUT",
+            label: "Route Timeout",
+            description: "subscription software company"
+          }
+        ]
+      });
+    }
+
     return jsonResponse({
       search: []
     });
@@ -116,6 +191,24 @@ async function fakeOfficialFetch(url) {
 
   if (urlText.includes("Special:EntityData/QFIGMA.json")) {
     return jsonResponse(wikidataEntity("https://www.figma.com/"));
+  }
+
+  if (urlText.includes("Special:EntityData/QFALLBACKONLY.json")) {
+    return jsonResponse(singleWikidataEntity(
+      "QFALLBACKONLY",
+      "Fallback Only",
+      "subscription software company",
+      "https://fallbackonly.com/"
+    ));
+  }
+
+  if (urlText.includes("Special:EntityData/QROUTETIMEOUT.json")) {
+    return jsonResponse(singleWikidataEntity(
+      "QROUTETIMEOUT",
+      "Route Timeout",
+      "subscription software company",
+      "https://routetimeout.com/"
+    ));
   }
 
   if (urlText === "https://www.canva.com/help/cancel-canva-plan/") {
@@ -263,6 +356,40 @@ async function fakeOfficialFetch(url) {
     );
   }
 
+  if (urlText === "https://fallbackonly.com/") {
+    return htmlResponse(
+      `<!doctype html>
+      <html>
+        <head><title>Fallback Only</title></head>
+        <body><main><h1>Fallback Only</h1><p>Fallback Only subscription software company.</p></main></body>
+      </html>`
+    );
+  }
+
+  if (urlText === "https://routetimeout.com/") {
+    return htmlResponse(
+      `<!doctype html>
+      <html>
+        <head><title>Route Timeout</title></head>
+        <body><main><h1>Route Timeout</h1><p>Route Timeout subscription software company.</p></main></body>
+      </html>`
+    );
+  }
+
+  if (urlText.startsWith("https://routetimeout.com/")) {
+    return abortableHang(fetchOptions.signal);
+  }
+
+  if (urlText === "https://linkedin.com/") {
+    return htmlResponse(
+      `<!doctype html>
+      <html>
+        <head><title>LinkedIn</title></head>
+        <body><main><h1>LinkedIn</h1><p>LinkedIn professional network and premium subscription platform.</p></main></body>
+      </html>`
+    );
+  }
+
   if (urlText === "https://www.dropbox.com/" || urlText === "https://help.dropbox.com/") {
     return htmlResponse(
       `<!doctype html>
@@ -389,6 +516,35 @@ async function fakeOfficialFetch(url) {
       <html>
         <head><title>Market Only help</title></head>
         <body><main><h1>Help homepage</h1><p>Generic support and marketing content.</p></main></body>
+      </html>`
+    );
+  }
+
+  return htmlResponse("<html><title>Not found</title><body>Not found</body></html>", 404);
+}
+
+async function fakeRateLimitedWikidataFetch(url, fetchOptions = {}) {
+  const urlText = String(url);
+  fetchCalls.push(urlText);
+
+  if (urlText.includes("wikidata.org/w/api.php")) {
+    await delay(900);
+    return jsonResponse({ error: { code: "ratelimited" } }, 429);
+  }
+
+  if (urlText === "https://linkedin.com/") {
+    await delay(1600);
+    if (fetchOptions.signal?.aborted) {
+      const err = new Error("Aborted");
+      err.name = "AbortError";
+      throw err;
+    }
+
+    return htmlResponse(
+      `<!doctype html>
+      <html>
+        <head><title>LinkedIn</title></head>
+        <body><main><h1>LinkedIn</h1><p>LinkedIn professional network and premium subscription platform.</p></main></body>
       </html>`
     );
   }
@@ -546,6 +702,7 @@ async function fakeVerifiedHealthFetch(url) {
     assert(html.includes("officialSiteButton.disabled = true"), "Official Website must be disabled while inactive.");
     assert(html.includes("officialSiteButton.disabled = false"), "Official Website must be enabled when active.");
     assert(html.includes("if (data.officialSite)"), "No-result responses with a safe officialSite must activate the button.");
+    assert(!html.includes("finalMessage ==="), "Official Website activation must not depend on exact message text.");
     assert(html.includes("activateOfficialSiteButton(query);"), "Known no-result official sites must activate immediately.");
     assert(html.includes("window.open(storedOfficialSiteUrl, \"_blank\", \"noopener,noreferrer\")"), "Official Website must open only from a click in a new tab.");
     assert(html.includes("target=\"_blank\""), "Open official result must open in a new tab.");
@@ -974,6 +1131,70 @@ async function fakeVerifiedHealthFetch(url) {
   assert.strictEqual(figma.source, "live-official-site-discovery");
   assert.strictEqual(figma.verified, false);
   assert.strictEqual(figma.link, "https://figma.com/cancel");
+
+  fetchCalls.length = 0;
+  const fallbackOnly = await searchCancellationRoute("Fallback Only", {
+    fetchImpl: fakeOfficialFetch,
+    disableDiscoveryCache: true,
+    maxPages: 12
+  });
+  assert(!fallbackOnly.link, "Discovered companies without a confirmed route should not invent a cancellation URL.");
+  assert.strictEqual(
+    fallbackOnly.officialSite,
+    "https://fallbackonly.com/",
+    "Safe discovered official sites must be returned as a no-route fallback."
+  );
+  assert.strictEqual(fallbackOnly.cacheable, true, "Official-site fallbacks should be positive-cacheable.");
+
+  fetchCalls.length = 0;
+  const routeTimeoutStartedAt = Date.now();
+  const routeTimeout = await searchCancellationRoute("Route Timeout", {
+    fetchImpl: fakeOfficialFetch,
+    disableDiscoveryCache: true,
+    cancellationRouteDiscoveryBudgetMs: 500,
+    maxPages: 30
+  });
+  assert(Date.now() - routeTimeoutStartedAt < 2000, "Route probing must stop at its stage budget.");
+  assert(!routeTimeout.link, "Timed-out route probing must not invent a cancellation URL.");
+  assert.strictEqual(
+    routeTimeout.officialSite,
+    "https://routetimeout.com/",
+    "A safe officialSite must survive later route-probing timeout."
+  );
+
+  fetchCalls.length = 0;
+  const linkedInPremium = await searchCancellationRoute("LinkedIn Premium", {
+    fetchImpl: fakeOfficialFetch,
+    disableDiscoveryCache: true,
+    maxPages: 8
+  });
+  assert(!linkedInPremium.link, "Product-name fallback must not invent a cancellation URL.");
+  assert.strictEqual(
+    linkedInPremium.officialSite,
+    "https://linkedin.com/",
+    "Product suffixes such as Premium should not prevent safe base-domain discovery."
+  );
+  assert(fetchCalls.includes("https://linkedin.com/"), "LinkedIn Premium should try the base LinkedIn domain.");
+
+  fetchCalls.length = 0;
+  const rateLimitedLinkedIn = await searchCancellationRoute("LinkedIn Premium", {
+    fetchImpl: fakeRateLimitedWikidataFetch,
+    disableDiscoveryCache: true,
+    officialDomainDiscoveryBudgetMs: 3200,
+    cancellationRouteDiscoveryBudgetMs: 300,
+    maxPages: 4
+  });
+  assert(!rateLimitedLinkedIn.link, "Rate-limited Wikidata fallback must not invent a cancellation URL.");
+  assert.strictEqual(
+    rateLimitedLinkedIn.officialSite,
+    "https://linkedin.com/",
+    "Rate-limited Wikidata must leave enough stage budget for safe base-domain validation."
+  );
+  assert(fetchCalls.includes("https://linkedin.com/"), "Rate-limited discovery should validate the base domain.");
+  assert(
+    !fetchCalls.some((call) => call.includes("search=linkedin&")),
+    "Simplified Wikidata discovery should be skipped after Wikidata rate limiting."
+  );
 
   const guessedSeed = await discoverCompanySeed("Launch Widget", {
     fetchImpl: fakeOfficialFetch,

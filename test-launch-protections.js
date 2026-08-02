@@ -87,12 +87,14 @@ async function requestJsonFromListeningApp(app, requestPath) {
       body: await response.json()
     };
   } finally {
-    await new Promise((resolve, reject) => {
-      httpServer.close((err) => {
-        if (err) reject(err);
-        else resolve();
+    if (httpServer.listening) {
+      await new Promise((resolve, reject) => {
+        httpServer.close((err) => {
+          if (err) reject(err);
+          else resolve();
+        });
       });
-    });
+    }
 
     await app.locals.searchRuntime.shutdown({ graceMs: 10 });
   }
@@ -128,6 +130,60 @@ async function requestJsonFromListeningApp(app, requestPath) {
     const metrics = runtime.getMetrics();
     assert.strictEqual(metrics.searches.cacheHits.positive, 1);
     assert.strictEqual(metrics.searches.cacheHits.negative, 1);
+  }
+
+  {
+    let calls = 0;
+    const runtime = createSearchRuntime({
+      searchRunner: async (query) => {
+        calls += 1;
+        return {
+          company: query,
+          error: "No official cancellation route found yet.",
+          searched: true,
+          officialSite: "https://official-fallback.example/"
+        };
+      },
+      ipRateLimitMax: 100,
+      queryRateLimitMax: 100
+    });
+
+    await runtime.search("Official Fallback Cache", { ip: "fallback-cache-1" });
+    await runtime.search("Official Fallback Cache", { ip: "fallback-cache-2" });
+
+    const metrics = runtime.getMetrics();
+    assert.strictEqual(calls, 1, "Official-site fallbacks must be cached as positive useful results.");
+    assert.strictEqual(metrics.searches.cacheHits.positive, 1);
+    assert.strictEqual(metrics.searches.cacheHits.negative, 0);
+  }
+
+  {
+    let calls = 0;
+    const runtime = createSearchRuntime({
+      searchRunner: async (query) => {
+        calls += 1;
+        if (calls === 1) {
+          return {
+            company: query,
+            error: "No official cancellation route found yet.",
+            searched: true,
+            cacheable: false
+          };
+        }
+
+        return makeResult(query, { verified: false, source: "live-official-site-discovery" });
+      },
+      ipRateLimitMax: 100,
+      queryRateLimitMax: 100
+    });
+
+    const first = await runtime.search("Transient No Cache", { ip: "transient-cache-1" });
+    const second = await runtime.search("Transient No Cache", { ip: "transient-cache-2" });
+
+    assert(!first.link);
+    assert(second.link, "Transient no-results must not permanently negative-cache later success.");
+    assert.strictEqual(calls, 2);
+    assert.strictEqual(runtime.getMetrics().searches.cacheHits.negative, 0);
   }
 
   {
@@ -205,6 +261,75 @@ async function requestJsonFromListeningApp(app, requestPath) {
     const metrics = runtime.getMetrics();
     assert.strictEqual(metrics.searches.overloaded, 1);
     assert(metrics.queue.maxQueued >= 1);
+  }
+
+  {
+    let release;
+    const blocker = new Promise((resolve) => {
+      release = resolve;
+    });
+    let calls = 0;
+    const runtime = createSearchRuntime({
+      searchRunner: async (query) => {
+        calls += 1;
+        if (query === "Overload Active") {
+          await blocker;
+        }
+
+        return makeResult(query, { verified: false, source: "live-official-site-discovery" });
+      },
+      maxConcurrent: 1,
+      maxQueueSize: 0,
+      ipRateLimitMax: 100,
+      queryRateLimitMax: 100
+    });
+
+    const active = runtime.search("Overload Active", { ip: "overload-cache-1" });
+    await wait(5);
+    await assert.rejects(runtime.search("Overload Retry", { ip: "overload-cache-2" }), OverloadError);
+    release();
+    await active;
+
+    const retried = await runtime.search("Overload Retry", { ip: "overload-cache-3" });
+    assert(retried.link, "Overloaded requests must not be cached as permanent failures.");
+    assert.strictEqual(calls, 2);
+  }
+
+  {
+    let calls = 0;
+    const runtime = createSearchRuntime({
+      searchRunner: async (query, options) => {
+        calls += 1;
+        if (calls === 1) {
+          await wait(30);
+          if (options.signal?.aborted) {
+            return {
+              company: query,
+              error: "No official cancellation route found yet.",
+              searched: true
+            };
+          }
+        }
+
+        return makeResult(query, { verified: false, source: "live-official-site-discovery" });
+      },
+      ipRateLimitMax: 100,
+      queryRateLimitMax: 100
+    });
+    const controller = new AbortController();
+    const pending = runtime.search("Abort No Cache", {
+      ip: "abort-cache-1",
+      signal: controller.signal
+    });
+
+    await wait(5);
+    controller.abort();
+    await assert.rejects(pending, /cancelled/i);
+    await wait(40);
+
+    const retried = await runtime.search("Abort No Cache", { ip: "abort-cache-2" });
+    assert(retried.link, "Aborted requests must not cache late no-results.");
+    assert.strictEqual(calls, 2);
   }
 
   {

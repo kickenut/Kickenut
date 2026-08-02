@@ -4,6 +4,11 @@ const path = require("path");
 const express = require("express");
 const cors = require("cors");
 const { searchCancellationRoute, deriveOfficialSiteUrl } = require("./searchEngine");
+const {
+  createSearchDiagnostics,
+  isDiagnosticModeEnabled,
+  shouldIncludeDiagnosticsInResponse
+} = require("./searchDiagnostics");
 const { recordReviewCandidate } = require("./reviewQueue");
 const {
   OverloadError,
@@ -49,7 +54,12 @@ function buildOfficialSiteValue(result) {
 }
 
 function buildResultResponse(result) {
-  if (!result || result.error) return result;
+  if (!result) return result;
+
+  if (result.error) {
+    const { cacheable, ...publicResult } = result;
+    return publicResult;
+  }
 
   const officialSite = buildOfficialSiteValue(result);
 
@@ -274,19 +284,50 @@ async function handleSearch(req, res, options = {}) {
   const query = getSearchQuery(req);
   const queryKey = getQueryKey(query);
   const startedAt = Date.now();
+  const env = options.env || req.app.locals.env || process.env;
+  const diagnostics = createSearchDiagnostics({
+    enabled: isDiagnosticModeEnabled(env),
+    requestId: req.id,
+    query,
+    normalizedQuery: queryKey
+  });
+  const includeDiagnostics = shouldIncludeDiagnosticsInResponse(req, env);
+
+  function attachDiagnostics(body, statusCode) {
+    diagnostics.finish({
+      finalHttpStatus: statusCode,
+      returnedCancellationLink: body?.link || "",
+      returnedOfficialSite: body?.officialSite || "",
+      finalErrorOrMessage: body?.error || body?.message || body?.instruction || ""
+    });
+
+    if (diagnostics.enabled) {
+      logStructured("info", "search_diagnostic", {
+        requestId: req.id,
+        trace: diagnostics.toJSON()
+      });
+    }
+
+    if (!includeDiagnostics || !body || typeof body !== "object") return body;
+
+    return {
+      ...body,
+      diagnostics: diagnostics.toJSON()
+    };
+  }
 
   if (!query) {
-    return res.json({
+    return res.json(attachDiagnostics({
       error: "No query provided",
       searched: false
-    });
+    }, 200));
   }
 
   if (query.length > MAX_QUERY_LENGTH) {
-    return res.status(400).json({
+    return res.status(400).json(attachDiagnostics({
       error: "Search query is too long.",
       searched: false
-    });
+    }, 400));
   }
 
   try {
@@ -294,7 +335,8 @@ async function handleSearch(req, res, options = {}) {
       deep: Boolean(options.deep),
       ip: req.ip || req.socket?.remoteAddress || "unknown",
       requestId: req.id,
-      signal: requestSignal(req, res)
+      signal: requestSignal(req, res),
+      diagnostics
     });
 
     if (result.link) {
@@ -309,7 +351,7 @@ async function handleSearch(req, res, options = {}) {
         verified: Boolean(response.verified),
         durationMs: Date.now() - startedAt
       });
-      return res.json(response);
+      return res.json(attachDiagnostics(response, 200));
     }
 
     logStructured("info", "search_no_result", {
@@ -317,7 +359,7 @@ async function handleSearch(req, res, options = {}) {
       queryKey,
       durationMs: Date.now() - startedAt
     });
-    return res.json(buildResultResponse(result));
+    return res.json(attachDiagnostics(buildResultResponse(result), 200));
   } catch (err) {
     const mapped = mapSearchError(err);
 
@@ -329,12 +371,13 @@ async function handleSearch(req, res, options = {}) {
       durationMs: Date.now() - startedAt
     });
 
-    return res.status(mapped.statusCode).json(mapped.body);
+    return res.status(mapped.statusCode).json(attachDiagnostics(mapped.body, mapped.statusCode));
   }
 }
 
 function createApp(options = {}) {
   const app = express();
+  app.locals.env = options.env || process.env;
   const runtime = options.runtime || createSearchRuntime({
     ...runtimeOptionsFromEnv(options.env || process.env),
     searchRunner: options.searchRunner || searchCancellationRoute
