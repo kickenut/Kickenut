@@ -342,6 +342,91 @@
       background: #ffd633;
     }
 
+
+    /* Keep the original desktop layout; adapt controls only on phones. */
+    .phone-instructions, .phone-result-slot { display: none; }
+    .search-actions { display: contents; }
+
+    @media (max-width: 600px) {
+      .container {
+        box-sizing: border-box;
+        width: 100%;
+        padding: 20px 16px;
+      }
+      .top-banner { margin-bottom: 20px; }
+      .top-banner-ad, .ad-box {
+        box-sizing: border-box;
+        width: 100%;
+        height: auto;
+        min-height: 100px;
+        padding: 16px;
+        background: #1b1b1b;
+      }
+      h1 {
+        font-size: clamp(48px, 15vw, 72px);
+        line-height: 1.1;
+        margin: 0 0 12px;
+      }
+      .desktop-tagline { display: none; }
+      .phone-instructions {
+        display: block;
+        margin: 0;
+        font-size: 13px;
+        font-weight: normal;
+        line-height: 1.5;
+        color: #cccccc;
+      }
+      .search-box { margin-top: 20px; padding: 12px; }
+      .search-box input { box-sizing: border-box; width: 100%; font-size: 16px; padding: 12px 4px; }
+      .search-actions {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+        min-width: 0;
+      }
+      .phone-result-slot { display: contents; }
+      .search-actions .kickenut-action-button, .result-link {
+        box-sizing: border-box;
+        display: inline-flex;
+        justify-content: center;
+        align-items: center;
+        min-width: 0;
+        min-height: 46px;
+        padding: 12px 8px;
+        border: none;
+        border-radius: 10px;
+        font-family: inherit;
+        font-size: 16px;
+        font-weight: bold;
+        line-height: 1.2;
+        text-align: center;
+      }
+      .result-link { width: 100%; visibility: visible; opacity: 1; }
+      .result-link[aria-disabled="true"] { background: #e5e5e5; color: #666; cursor: not-allowed; }
+      .result-link.visible { background: #ffcc00; color: #121212; }
+      .result-link.visible:hover { background: #ffd633; }
+      .official-website-inactive,
+      .official-website-inactive:hover,
+      .official-website-inactive:disabled { background: #b51c23; color: #ffffff; opacity: 1; }
+      .official-website-active { background: #b51c23; color: white; }
+      .official-website-active:hover { background: #b51c23; }
+      .search-actions .kickenut-action-button:focus-visible, .result-link:focus-visible {
+        outline: 3px solid #2262c6;
+        outline-offset: 3px;
+      }
+      .search-status-row { min-height: 0; margin-top: 12px; }
+      .loading-box:not(.visible), .result-button-slot, .deep-search-area, .message.is-idle { display: none; }
+      .loading-row { gap: 8px; }
+      .scan-text:empty { display: none; }
+      .message { margin-top: 0; min-height: 0; font-size: 13px; }
+      .ads { margin-top: 20px; gap: 12px; }
+    }
+    @media (max-width: 360px) {
+      .container { padding-inline: 12px; }
+      .search-actions { gap: 8px; }
+      .search-actions .kickenut-action-button, .result-link { font-size: 15px; padding-inline: 6px; }
+    }
+
   </style>
 </head>
 
@@ -357,7 +442,8 @@
 
     <h1>Kickenut</h1>
 
-    <p>Stop unwanted subscriptions instantly.</p>
+    <p class="phone-instructions">Enter a company → Search → Unsubscribe now.<br>If needed, return here → Official Website → sign in and cancel.</p>
+    <p class="desktop-tagline">Stop unwanted subscriptions instantly.</p>
 
 
      <div class="search-box">
@@ -368,9 +454,12 @@
     onkeydown="handleEnter(event)"
   />
 
+  <div class="search-actions">
   <button class="kickenut-action-button" onclick="searchSubscription()">
     Search
   </button>
+    <div id="phoneResultSlot" class="phone-result-slot"></div>
+  </div>
 
   <!-- KICKENUT_OFFICIAL_WEBSITE_STYLE_FIX_ACTIVE -->
 	  <button
@@ -411,7 +500,7 @@
           href="#"
           target="_blank"
           rel="noopener noreferrer"
-          onclick="markResultOpened()"
+          onclick="return markResultOpened(event)"
           aria-disabled="true"
           tabindex="-1"
         >Open official result</a>
@@ -631,6 +720,9 @@
     }
 
     function showDefaultMessage(text) {
+      document.getElementById("message").classList.toggle(
+        "is-idle", !text || text === "After cancelling, come back and search for another subscription anytime."
+      );
       defaultMessage.style.display = "block";
       loadingBox.classList.remove("visible");
 
@@ -765,13 +857,18 @@
       input.focus();
     }
 
-    function markResultOpened() {
+    function markResultOpened(event) {
+      if (resultLink.getAttribute("aria-disabled") === "true") {
+        if (event) event.preventDefault();
+        return false;
+      }
       resultSent = true;
 
       sessionStorage.setItem(
         "kickenutResultSent",
         "true"
       );
+      return true;
     }
 
     function escapeHtml(value) {
@@ -1003,6 +1100,19 @@
 
 		      window.open(storedOfficialSiteUrl, "_blank", "noopener,noreferrer");
 		    }
+
+
+    // Reuse one result link so the destination and disabled state stay in sync.
+    const phoneLayout = window.matchMedia("(max-width: 600px)");
+    const desktopResultSlot = resultLink.parentElement;
+    const phoneResultSlot = document.getElementById("phoneResultSlot");
+    function syncPhoneLayout() {
+      const isPhone = phoneLayout.matches;
+      (isPhone ? phoneResultSlot : desktopResultSlot).appendChild(resultLink);
+      resultLink.textContent = isPhone ? "Unsubscribe now" : "Open official result";
+    }
+    syncPhoneLayout();
+    phoneLayout.addEventListener("change", syncPhoneLayout);
 
     window.addEventListener("blur", markUserLeftIfNeeded);
 
