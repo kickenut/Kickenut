@@ -327,22 +327,24 @@
     .official-website-inactive,
     .official-website-inactive:hover,
     .official-website-inactive:disabled {
-      background: #333333;
-      color: #777777;
+      background: #000000;
+      color: #ffffff;
       cursor: not-allowed;
-      opacity: 0.75;
+      opacity: 1;
     }
 
     .official-website-active {
-      background: #ffcc00;
-      color: #121212;
+      background: #000000;
+      color: #ffffff;
       cursor: pointer;
       opacity: 1;
     }
 
     .official-website-active:hover {
-      background: #ffd633;
+      background: #000000;
     }
+
+    .official-website-button { border: 1px solid #ffffff; }
 
 
     .brand-header {
@@ -371,9 +373,18 @@
     .about-button:hover { background: #181818; }
     .about-button:focus-visible { outline: 2px solid #ffffff; outline-offset: 4px; }
 
-    /* Keep the original desktop layout; adapt controls only on phones. */
-    .phone-result-slot { display: none; }
-    .search-actions { display: contents; }
+    /* Share the primary actions; move Official Website for each layout. */
+    .result-action-slot, .search-actions { display: contents; }
+    .search-actions .result-link {
+      box-sizing: border-box;
+      visibility: visible;
+      opacity: 1;
+      padding: 12px 22px;
+      font-family: inherit;
+      font-size: 18px;
+      border-radius: 10px;
+    }
+    .result-link[aria-disabled="true"] { background: #e5e5e5; color: #666666; cursor: not-allowed; }
 
     @media (max-width: 600px) {
       .container {
@@ -404,8 +415,7 @@
         gap: 10px;
         min-width: 0;
       }
-      .phone-result-slot { display: contents; }
-      .search-actions .kickenut-action-button, .result-link {
+      .search-actions .kickenut-action-button, .search-actions .result-link {
         box-sizing: border-box;
         display: inline-flex;
         justify-content: center;
@@ -425,11 +435,6 @@
       .result-link[aria-disabled="true"] { background: #e5e5e5; color: #666; cursor: not-allowed; }
       .result-link.visible { background: #ffcc00; color: #121212; }
       .result-link.visible:hover { background: #ffd633; }
-      .official-website-inactive,
-      .official-website-inactive:hover,
-      .official-website-inactive:disabled { background: #b51c23; color: #ffffff; opacity: 1; }
-      .official-website-active { background: #b51c23; color: white; }
-      .official-website-active:hover { background: #b51c23; }
       .search-actions .kickenut-action-button:focus-visible, .result-link:focus-visible {
         outline: 3px solid #2262c6;
         outline-offset: 3px;
@@ -444,7 +449,7 @@
     @media (max-width: 360px) {
       .container { padding-inline: 12px; }
       .search-actions { gap: 8px; }
-      .search-actions .kickenut-action-button, .result-link { font-size: 15px; padding-inline: 6px; }
+      .search-actions .kickenut-action-button, .search-actions .result-link { font-size: 15px; padding-inline: 6px; }
     }
 
   </style>
@@ -478,7 +483,7 @@
   <button class="kickenut-action-button" onclick="searchSubscription()">
     Search
   </button>
-    <div id="phoneResultSlot" class="phone-result-slot"></div>
+    <div id="resultActionSlot" class="result-action-slot"></div>
   </div>
 
   <!-- KICKENUT_OFFICIAL_WEBSITE_STYLE_FIX_ACTIVE -->
@@ -523,7 +528,7 @@
           onclick="return markResultOpened(event)"
           aria-disabled="true"
           tabindex="-1"
-        >Open official result</a>
+        >Unsubscribe now</a>
       </div>
     </div>
 
@@ -1122,14 +1127,13 @@
 		    }
 
 
-    // Reuse one result link so the destination and disabled state stay in sync.
+    // Keep the same controls and their state when switching between layouts.
     const phoneLayout = window.matchMedia("(max-width: 600px)");
-    const desktopResultSlot = resultLink.parentElement;
-    const phoneResultSlot = document.getElementById("phoneResultSlot");
+    const desktopOfficialSiteSlot = resultLink.parentElement;
+    const phoneOfficialSiteSlot = officialSiteButton.parentElement;
+    document.getElementById("resultActionSlot").appendChild(resultLink);
     function syncPhoneLayout() {
-      const isPhone = phoneLayout.matches;
-      (isPhone ? phoneResultSlot : desktopResultSlot).appendChild(resultLink);
-      resultLink.textContent = isPhone ? "Unsubscribe now" : "Open official result";
+      (phoneLayout.matches ? phoneOfficialSiteSlot : desktopOfficialSiteSlot).appendChild(officialSiteButton);
     }
     syncPhoneLayout();
     phoneLayout.addEventListener("change", syncPhoneLayout);
