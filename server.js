@@ -352,6 +352,7 @@ function createApp(options = {}) {
   app.get("/index.html", sendPage(INDEX_FILE));
   app.get("/search.html", sendPage(SEARCH_FILE));
   app.get("/about", sendPage(path.join(ROOT_DIR, "about.html")));
+  app.get("/ads.txt", sendPage(path.join(ROOT_DIR, "ads.txt")));
   app.get("/favicon.ico", (req, res) => res.status(204).end());
 
   function sendHealth(req, res) {
